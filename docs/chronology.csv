@@ -1,0 +1,17 @@
+sequence,date,file,primary_stage,status,relationship
+001,2025-10-24,code_by1024(1).ipynb,mixed_collection_preprocessing_eda,legacy,initial keyword and NPI prototype
+002,2025-11-04,code_by1104.ipynb,mixed_collection_preprocessing_eda,legacy,adds categories and incremental processing
+003,2025-11-07,code_by1107.ipynb,mixed_collection_preprocessing_eda,legacy,adds union intersection and rating discrepancy checks
+004,2025-11-14,code_by1114.py,mixed_collection_preprocessing_eda,legacy,monolithic exported script and expanded exploratory work
+005,2026-01-13,code_by_011326_UPDATED.ipynb,collection_preprocessing_eda,reference_latest_collection,expands LMS locations and constrains ZIP samples
+006,2026-01-19,code_by_011926.ipynb,cross_sectional_regression,reference_first_regression,first OLS and Logit specification
+007,2026-02-10,code_by_0210.ipynb,panel_construction_regression,reference_panel_transition,adds website dates review histories quantile and provisional survival models
+008,2026-02-25,code_by_022526.ipynb,spatial_panel_regression,legacy_regression,adds spatial entry shocks entity effects and competitor heterogeneity
+009a,2026-03-10,0310All.ipynb,spatial_panel_robustness,reference_integrated,all-category spatial robustness branch
+009b,2026-03-10,0310general.ipynb,category_regression,duplicate_template,General input variant
+009c,2026-03-10,0310Special.ipynb,category_regression,duplicate_template,Special input variant
+009d,2026-03-10,0310Surgery.ipynb,category_regression,duplicate_template,Surgery input variant
+010,2026-03-25,0325.ipynb,scaled_spatial_panel_nlp,legacy_regression,adds market-distance quantiles and NLP outcomes
+011,2026-03-28,0328.ipynb,nlp_event_study_regression,legacy_regression,adds cleaned NLP and revised event-study work
+012,2026-04-04,0404.ipynb,panel_nlp_event_study,reference_streamlined,streamlines panel NLP and event-study branches
+013,2026-04-11,0411.ipynb,latest_panel_nlp_event_study,latest_working_notebook,adds exit shocks maps and matching robustness

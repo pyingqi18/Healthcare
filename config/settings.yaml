@@ -1,0 +1,44 @@
+project:
+  name: medical_institution_ratings
+  timezone: UTC
+
+paths:
+  data_root: data
+  external: data/external
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  outputs: outputs
+
+dataforseo:
+  language_code: en
+  depth: 100
+  request_interval_seconds: 1
+  max_poll_attempts: 30
+  poll_interval_seconds: 60
+  endpoints:
+    local_finder_post: https://api.dataforseo.com/v3/serp/google/local_finder/task_post
+    local_finder_get: https://api.dataforseo.com/v3/serp/google/local_finder/task_get/advanced/{task_id}
+    maps_post: https://api.dataforseo.com/v3/serp/google/maps/task_post
+    maps_get: https://api.dataforseo.com/v3/serp/google/maps/task_get/advanced/{task_id}
+
+study:
+  panel_end_year: 2025
+  low_rating_threshold: 3.0
+  exploratory_failure_threshold: 3.5
+  strong_rating_threshold: 4.9
+  exit_inactivity_years: 2
+  minimum_treatment_year: 2014
+  event_window_start: -3
+  event_window_end: 5
+  distance_quantiles: [0.25, 0.50]
+  preferred_identity_fields: [place_id, cid]
+  fallback_identity_fields: [normalized_title, zip, latitude, longitude]
+
+model:
+  main_outcome: dynamic_rating
+  main_exposure: log_lag_entry_shock_25pct
+  density_control: log_density_25pct_total
+  include_log_votes_by_default: false
+  fixed_effects: [clinic_id, market_year]
+  cluster_by: clinic_id

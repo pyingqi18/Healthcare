@@ -1,0 +1,20 @@
+taxonomy_code,official_label,default_include,scope_note
+122300000X,Dentist,1,General dentist classification
+1223D0001X,Dental Public Health,1,Dentist specialization
+1223D0004X,Dentist Anesthesiologist,1,Dentist specialization
+1223E0200X,Endodontics,1,Dentist specialization
+1223G0001X,General Practice,1,Dentist specialization
+1223P0106X,Oral and Maxillofacial Pathology,1,Dentist specialization
+1223P0221X,Pediatric Dentistry,1,Dentist specialization
+1223P0300X,Periodontics,1,Dentist specialization
+1223P0700X,Prosthodontics,1,Dentist specialization
+1223S0112X,Oral and Maxillofacial Surgery,1,Dentist specialization
+1223X0008X,Oral and Maxillofacial Radiology,1,Dentist specialization
+1223X0400X,Orthodontics and Dentofacial Orthopedics,1,Dentist specialization
+1223X2210X,Orofacial Pain,1,Dentist specialization
+122400000X,Denturist,0,Exclude unless the estimand covers all dental providers
+124Q00000X,Dental Hygienist,0,Exclude unless the estimand covers all dental providers
+125J00000X,Dental Therapist,0,Exclude unless the estimand covers all dental providers
+125K00000X,Advanced Practice Dental Therapist,0,Exclude unless the estimand covers all dental providers
+126800000X,Dental Assistant,0,Exclude unless the estimand covers all dental providers
+126900000X,Dental Laboratory Technician,0,Exclude unless the estimand covers all dental providers

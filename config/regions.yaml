@@ -1,0 +1,76 @@
+regions:
+  Malone_NY_S:
+    state: NY
+    size: Small
+    zip_values: [12953]
+    hub: [44.8487, -74.2963]
+  SaranacLake_NY_S:
+    state: NY
+    size: Small
+    zip_values: [12983]
+    hub: [44.3295, -74.1313]
+  Syracuse_NY_M:
+    state: NY
+    size: Mid_Size
+    zip_ranges: [[13200, 13299]]
+    hub: [43.0481, -76.1474]
+  Buffalo_NY_L:
+    state: NY
+    size: Large
+    zip_ranges: [[14200, 14299]]
+    hub: [42.8864, -78.8784]
+  NYC_NY_L:
+    state: NY
+    size: Large
+    zip_ranges: [[10000, 10499], [11000, 11699]]
+    hub: [40.7128, -74.0060]
+  Eureka_CA_S:
+    state: CA
+    size: Small
+    zip_values: [95501, 95502, 95503, 95534]
+    hub: [40.8021, -124.1637]
+  FortBragg_CA_S:
+    state: CA
+    size: Small
+    zip_values: [95437]
+    hub: [39.4457, -123.8053]
+  Modesto_CA_M:
+    state: CA
+    size: Mid_Size
+    zip_ranges: [[95350, 95358]]
+    hub: [37.6391, -120.9969]
+  SanFrancisco_CA_L:
+    state: CA
+    size: Large
+    zip_ranges: [[94100, 94188]]
+    hub: [37.7749, -122.4194]
+  LA_CA_L:
+    state: CA
+    size: Large
+    zip_ranges: [[90000, 91699]]
+    hub: [34.0522, -118.2437]
+  Vidalia_GA_S:
+    state: GA
+    size: Small
+    zip_values: [30474, 30475]
+    hub: [32.2177, -82.4135]
+  Toccoa_GA_S:
+    state: GA
+    size: Small
+    zip_values: [30577]
+    hub: [34.5771, -83.3324]
+  Macon_GA_M:
+    state: GA
+    size: Mid_Size
+    zip_ranges: [[31200, 31299]]
+    hub: [32.8407, -83.6324]
+  Augusta_GA_L:
+    state: GA
+    size: Large
+    zip_ranges: [[30900, 30999]]
+    hub: [33.4735, -81.9665]
+  Atlanta_GA_L:
+    state: GA
+    size: Large
+    zip_ranges: [[30300, 30399], [31100, 31199]]
+    hub: [33.7490, -84.3880]
