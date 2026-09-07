@@ -11,26 +11,75 @@ from typing import Any
 
 
 def normalize_zip(value: Any) -> str | None:
-    """Return a five-digit ZIP code or None."""
+    """Return a normalized five-digit ZIP code or None."""
 
     if value is None:
         return None
-    if isinstance(value, float) and math.isnan(value):
+
+    try:
+        if bool(math.isnan(value)):
+            return None
+    except (TypeError, ValueError):
+        pass
+
+    text = str(value).strip()
+
+    if not text:
         return None
-    digits = re.sub(r"\D", "", str(value).strip().split("-")[0])
+
+    if re.search(r"[A-Za-z]", text):
+        return None
+
+    if re.fullmatch(r"\d+\.0+", text):
+        text = text.split(".", maxsplit=1)[0]
+
+    base_zip = text.split("-", maxsplit=1)[0]
+    digits = re.sub(r"\D", "", base_zip)
+
     if not digits:
         return None
+
     return digits[:5].zfill(5)
 
 
 def normalize_name(value: Any) -> str | None:
-    """Normalize a public business or provider name for linkage."""
+    """Normalize a public business or provider name."""
 
     if value is None:
         return None
-    text = unicodedata.normalize("NFKD", str(value)).encode("ascii", "ignore").decode()
-    text = re.sub(r"[^a-zA-Z0-9]+", " ", text.lower()).strip()
+
+    try:
+        if bool(math.isnan(value)):
+            return None
+    except (TypeError, ValueError):
+        pass
+
+    text = str(value).strip()
+
+    if (
+        not text
+        or text.lower() in {
+            "nan",
+            "none",
+            "<na>",
+        }
+    ):
+        return None
+
+    text = (
+        unicodedata.normalize("NFKD", text)
+        .encode("ascii", "ignore")
+        .decode()
+    )
+
+    text = re.sub(
+        r"[^a-zA-Z0-9]+",
+        " ",
+        text.lower(),
+    ).strip()
+
     text = re.sub(r"\s+", " ", text)
+
     return text or None
 
 

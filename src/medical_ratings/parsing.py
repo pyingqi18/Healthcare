@@ -92,3 +92,79 @@ def parse_local_finder_payload(
             }
         )
     return records
+
+
+def parse_reviews_payload(
+    payload: Mapping[str, Any],
+    *,
+    task_id: str,
+    requested_location: str,
+    retrieved_at_utc: str,
+) -> list[dict[str, Any]]:
+    """Parse Google review results while preserving stable identifiers."""
+
+    records: list[dict[str, Any]] = []
+
+    for task in payload.get("tasks") or []:
+        if not isinstance(task, Mapping):
+            continue
+
+        for result in task.get("result") or []:
+            if not isinstance(result, Mapping):
+                continue
+
+            business_rating = (
+                result.get("rating")
+                if isinstance(result.get("rating"), Mapping)
+                else {}
+            )
+
+            for item in result.get("items") or []:
+                if not isinstance(item, Mapping):
+                    continue
+
+                review_rating = (
+                    item.get("rating")
+                    if isinstance(item.get("rating"), Mapping)
+                    else {}
+                )
+
+                records.append(
+                    {
+                        "task_id": task_id,
+                        "source_api": "google_reviews",
+                        "requested_location": requested_location,
+                        "retrieved_at_utc": retrieved_at_utc,
+                        "location_code": result.get("location_code"),
+                        "language_code": result.get("language_code"),
+                        "result_datetime_utc": result.get("datetime"),
+                        "place_id": result.get("place_id"),
+                        "cid": result.get("cid"),
+                        "business_title": result.get("title"),
+                        "business_sub_title": result.get("sub_title"),
+                        "business_rating_value": business_rating.get("value"),
+                        "business_votes_count": business_rating.get("votes_count"),
+                        "business_reviews_count": result.get("reviews_count"),
+                        "review_id": item.get("review_id"),
+                        "review_rank": item.get("rank_absolute"),
+                        "review_timestamp_utc": item.get("timestamp"),
+                        "rating_value": review_rating.get("value"),
+                        "rating_max": review_rating.get("rating_max"),
+                        "review_text": item.get("review_text"),
+                        "original_review_text": item.get("original_review_text"),
+                        "original_language": item.get("original_language"),
+                        "profile_name": item.get("profile_name"),
+                        "profile_url": item.get("profile_url"),
+                        "review_url": item.get("review_url"),
+                        "local_guide": item.get("local_guide"),
+                        "reviewer_reviews_count": item.get("reviews_count"),
+                        "reviewer_photos_count": item.get("photos_count"),
+                        "owner_answer": item.get("owner_answer"),
+                        "original_owner_answer": item.get(
+                            "original_owner_answer"
+                        ),
+                        "owner_timestamp_utc": item.get("owner_timestamp"),
+                    }
+                )
+
+    return records

@@ -139,3 +139,198 @@ def add_entry_exposures(
     for column in count_columns:
         output[f"log_{column}"] = np.log1p(output[column])
     return output
+
+def haversine_distance_to_points(
+    latitude_1: np.ndarray,
+    longitude_1: np.ndarray,
+    latitude_2: np.ndarray,
+    longitude_2: np.ndarray,
+) -> np.ndarray:
+    """Calculate aligned point-to-point distances."""
+
+    lat_1 = np.radians(
+        np.asarray(latitude_1, dtype=float)
+    )
+    lon_1 = np.radians(
+        np.asarray(longitude_1, dtype=float)
+    )
+    lat_2 = np.radians(
+        np.asarray(latitude_2, dtype=float)
+    )
+    lon_2 = np.radians(
+        np.asarray(longitude_2, dtype=float)
+    )
+
+    delta_latitude = lat_1 - lat_2
+    delta_longitude = lon_1 - lon_2
+
+    value = (
+        np.sin(delta_latitude / 2) ** 2
+        + np.cos(lat_1)
+        * np.cos(lat_2)
+        * np.sin(delta_longitude / 2) ** 2
+    )
+
+    return (
+        2
+        * EARTH_RADIUS_MILES
+        * np.arcsin(
+            np.sqrt(
+                np.clip(value, 0, 1)
+            )
+        )
+    )
+
+
+def add_spatial_eligibility(
+    clinics: pd.DataFrame,
+    regions: dict,
+    *,
+    max_hub_distance_miles: float = 100.0,
+) -> pd.DataFrame:
+    """Add spatial-analysis eligibility flags."""
+
+    required_columns = {
+        "search_location",
+        "latitude",
+        "longitude",
+        "analysis_exclusion_reason",
+        "preliminary_analysis_eligible",
+    }
+    missing_columns = (
+        required_columns - set(clinics.columns)
+    )
+
+    if missing_columns:
+        raise KeyError(
+            "Missing spatial eligibility columns: "
+            f"{sorted(missing_columns)}"
+        )
+
+    if max_hub_distance_miles <= 0:
+        raise ValueError(
+            "max_hub_distance_miles must be positive."
+        )
+
+    result = clinics.copy()
+
+    latitude = pd.to_numeric(
+        result["latitude"],
+        errors="coerce",
+    )
+    longitude = pd.to_numeric(
+        result["longitude"],
+        errors="coerce",
+    )
+
+    valid_coordinates = (
+        latitude.between(-90, 90)
+        & longitude.between(-180, 180)
+        & ~(
+            (latitude == 0)
+            & (longitude == 0)
+        )
+    )
+
+    hub_latitudes = {
+        location: float(details["hub"][0])
+        for location, details in regions.items()
+        if "hub" in details
+    }
+    hub_longitudes = {
+        location: float(details["hub"][1])
+        for location, details in regions.items()
+        if "hub" in details
+    }
+
+    hub_latitude = (
+        result["search_location"]
+        .map(hub_latitudes)
+    )
+    hub_longitude = (
+        result["search_location"]
+        .map(hub_longitudes)
+    )
+
+    known_hub = (
+        hub_latitude.notna()
+        & hub_longitude.notna()
+    )
+
+    distance = pd.Series(
+        np.nan,
+        index=result.index,
+        dtype="float64",
+    )
+
+    distance_available = (
+        valid_coordinates & known_hub
+    )
+
+    distance.loc[distance_available] = (
+        haversine_distance_to_points(
+            latitude.loc[
+                distance_available
+            ].to_numpy(),
+            longitude.loc[
+                distance_available
+            ].to_numpy(),
+            hub_latitude.loc[
+                distance_available
+            ].to_numpy(),
+            hub_longitude.loc[
+                distance_available
+            ].to_numpy(),
+        )
+    )
+
+    base_eligible = (
+        result[
+            "preliminary_analysis_eligible"
+        ]
+        .fillna(False)
+        .astype(bool)
+    )
+
+    spatial_reason = (
+        result["analysis_exclusion_reason"]
+        .astype("string")
+        .copy()
+    )
+
+    spatial_reason.loc[base_eligible] = (
+        "eligible"
+    )
+
+    spatial_reason.loc[
+        base_eligible
+        & ~valid_coordinates
+    ] = "invalid_or_missing_coordinates"
+
+    spatial_reason.loc[
+        base_eligible
+        & valid_coordinates
+        & ~known_hub
+    ] = "unknown_market_hub"
+
+    spatial_reason.loc[
+        base_eligible
+        & distance.notna()
+        & (
+            distance
+            > max_hub_distance_miles
+        )
+    ] = "outside_market_distance"
+
+    result["valid_coordinates"] = (
+        valid_coordinates
+    )
+    result["hub_distance_miles"] = distance
+    result["spatial_exclusion_reason"] = (
+        spatial_reason
+    )
+    result["spatial_analysis_eligible"] = (
+        spatial_reason == "eligible"
+    )
+
+    return result

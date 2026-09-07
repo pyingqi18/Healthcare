@@ -46,3 +46,6 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = [
+  "real_data: tests that require local legacy research data",
+]

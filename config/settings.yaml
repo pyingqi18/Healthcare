@@ -16,11 +16,20 @@ dataforseo:
   request_interval_seconds: 1
   max_poll_attempts: 30
   poll_interval_seconds: 60
+  review_task_batch_size: 50
+  review_sort_by: newest
+  review_depth_minimum: 20
+  review_depth_buffer: 50
+  review_depth_maximum: 2000
+  review_depth_multiple: 10
   endpoints:
     local_finder_post: https://api.dataforseo.com/v3/serp/google/local_finder/task_post
     local_finder_get: https://api.dataforseo.com/v3/serp/google/local_finder/task_get/advanced/{task_id}
     maps_post: https://api.dataforseo.com/v3/serp/google/maps/task_post
     maps_get: https://api.dataforseo.com/v3/serp/google/maps/task_get/advanced/{task_id}
+    reviews_post: https://api.dataforseo.com/v3/business_data/google/reviews/task_post
+    reviews_get: https://api.dataforseo.com/v3/business_data/google/reviews/task_get/{task_id}
+    reviews_tasks_ready: https://api.dataforseo.com/v3/business_data/google/reviews/tasks_ready
 
 study:
   panel_end_year: 2025
