@@ -14,6 +14,7 @@ dataforseo:
   language_code: en
   depth: 100
   request_interval_seconds: 1
+  business_info_download_interval_seconds: 0.1
   max_poll_attempts: 30
   poll_interval_seconds: 60
   review_task_batch_size: 50
@@ -27,6 +28,9 @@ dataforseo:
     local_finder_get: https://api.dataforseo.com/v3/serp/google/local_finder/task_get/advanced/{task_id}
     maps_post: https://api.dataforseo.com/v3/serp/google/maps/task_post
     maps_get: https://api.dataforseo.com/v3/serp/google/maps/task_get/advanced/{task_id}
+    business_info_post: https://api.dataforseo.com/v3/business_data/google/my_business_info/task_post
+    business_info_get: https://api.dataforseo.com/v3/business_data/google/my_business_info/task_get/{task_id}
+    business_info_tasks_ready: https://api.dataforseo.com/v3/business_data/google/my_business_info/tasks_ready
     reviews_post: https://api.dataforseo.com/v3/business_data/google/reviews/task_post
     reviews_get: https://api.dataforseo.com/v3/business_data/google/reviews/task_get/{task_id}
     reviews_tasks_ready: https://api.dataforseo.com/v3/business_data/google/reviews/tasks_ready

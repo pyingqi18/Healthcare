@@ -1,5 +1,11 @@
-# Sanitized Chronological Archive
+1. 文件夹用途
+   archive保存2025和2026年的历史代码及notebook，用于追溯项目演变。
 
-These files preserve the research code history in chronological order. Notebook outputs and execution counts were removed, and plaintext credentials were replaced with environment-variable lookups.
+2. 使用规则
+   这里的文件不构成正式运行流程。正式代码位于src和scripts。
 
-The archive is not an executable pipeline. Historical comments and markdown are retained to preserve provenance, including original-language notes.
+3. 安全处理
+   历史文件中的明文凭据已经移除，notebook输出和执行计数已经清理。
+
+4. 修改原则
+   一般不修改历史文件。确认历史问题后，应在正式代码和reports中记录修复，不回写旧版本。

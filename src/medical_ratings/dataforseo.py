@@ -7,6 +7,7 @@ import json
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import requests
@@ -68,12 +69,19 @@ class DataForSEOClient:
         self.session = requests.Session()
 
     @staticmethod
-    def _validate_response(payload: dict[str, Any]) -> None:
+    def _validate_response(
+        payload: dict[str, Any],
+        *,
+        validate_tasks: bool = True,
+    ) -> None:
         status_code = payload.get("status_code")
         if status_code is not None and int(status_code) >= 40000:
             raise DataForSEOError(
                 f"DataForSEO request failed: {status_code} {payload.get('status_message')}"
             )
+
+        if not validate_tasks:
+            return
 
         tasks = payload.get("tasks") or []
         for task in tasks:
@@ -83,7 +91,14 @@ class DataForSEOClient:
                     f"DataForSEO task failed: {task_code} {task.get('status_message')}"
                 )
 
-    def _request(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
+    def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        validate_tasks: bool = True,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
         response = self.session.request(
             method,
             url,
@@ -93,8 +108,243 @@ class DataForSEOClient:
         )
         response.raise_for_status()
         payload = response.json()
-        self._validate_response(payload)
+        self._validate_response(payload, validate_tasks=validate_tasks)
         return payload
+
+    def submit_business_info_batch(
+        self,
+        *,
+        url: str,
+        tasks: Sequence[Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Submit up to 100 Business Info tasks and retain per-task status."""
+
+        if not 1 <= len(tasks) <= 100:
+            raise ValueError("Business Info batch must contain 1 to 100 tasks")
+
+        payload_rows: list[dict[str, Any]] = []
+        source_rows: list[dict[str, Any]] = []
+        observed_tags: set[str] = set()
+        for source in tasks:
+            required = {
+                "task_tag",
+                "clinic_key",
+                "cid",
+                "query",
+                "location_code",
+                "language_code",
+                "priority",
+            }
+            missing = required - set(source)
+            if missing:
+                raise KeyError(
+                    f"Business Info task is missing fields: {sorted(missing)}"
+                )
+
+            tag = str(source["task_tag"]).strip()
+            cid = str(source["cid"]).strip()
+            query = str(source["query"]).strip()
+            if not tag or len(tag) > 255:
+                raise ValueError("task_tag must contain 1 to 255 characters")
+            if tag in observed_tags:
+                raise ValueError("Business Info batch contains duplicate task_tag values")
+            if not cid.isdigit() or query != f"cid:{cid}":
+                raise ValueError("Business Info query must exactly match cid:<cid>")
+            observed_tags.add(tag)
+
+            payload_row = {
+                "keyword": query,
+                "location_code": int(source["location_code"]),
+                "language_code": str(source["language_code"]),
+                "priority": int(source["priority"]),
+                "tag": tag,
+            }
+            if payload_row["priority"] not in {1, 2}:
+                raise ValueError("priority must be 1 or 2")
+            payload_rows.append(payload_row)
+            source_rows.append(dict(source))
+
+        payload = self._request(
+            "POST",
+            url,
+            json=payload_rows,
+            validate_tasks=False,
+        )
+        response_tasks = payload.get("tasks") or []
+        if len(response_tasks) != len(payload_rows):
+            raise DataForSEOError(
+                "Business Info response task count does not match request count"
+            )
+
+        submitted_at = datetime.now(timezone.utc).isoformat()
+        records: list[dict[str, Any]] = []
+        for source, request_row, response_task in zip(
+            source_rows,
+            payload_rows,
+            response_tasks,
+            strict=True,
+        ):
+            response_data = response_task.get("data") or {}
+            response_tag = response_data.get("tag")
+            if response_tag is not None and str(response_tag) != request_row["tag"]:
+                raise DataForSEOError(
+                    "Business Info response tag does not match request order"
+                )
+
+            canonical = json.dumps(
+                request_row,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            status_code = response_task.get("status_code")
+            task_id = response_task.get("id")
+            submitted = (
+                status_code is not None
+                and int(status_code) < 40000
+                and bool(task_id)
+            )
+            records.append(
+                {
+                    **source,
+                    "task_id": None if task_id is None else str(task_id),
+                    "api_type": "google_my_business_info",
+                    "endpoint": url,
+                    "params_hash": hashlib.sha256(
+                        canonical.encode("utf-8")
+                    ).hexdigest(),
+                    "submitted_at_utc": submitted_at,
+                    "api_status_code": status_code,
+                    "api_status_message": response_task.get("status_message"),
+                    "api_cost_usd": response_task.get("cost"),
+                    "submission_status": "submitted" if submitted else "failed",
+                }
+            )
+        return records
+
+    def submit_review_batch(
+        self,
+        *,
+        url: str,
+        tasks: Sequence[Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Submit up to 100 Google Reviews tasks with per-task provenance."""
+
+        if not 1 <= len(tasks) <= 100:
+            raise ValueError("Google Reviews batch must contain 1 to 100 tasks")
+
+        payload_rows: list[dict[str, Any]] = []
+        source_rows: list[dict[str, Any]] = []
+        observed_tags: set[str] = set()
+        for source in tasks:
+            required = {
+                "task_tag",
+                "final_physical_location_id",
+                "clinic_key",
+                "cid",
+                "identifier_type",
+                "identifier_value",
+                "requested_location",
+                "location_code",
+                "language_code",
+                "sort_by",
+                "planned_depth",
+            }
+            missing = required - set(source)
+            if missing:
+                raise KeyError(
+                    f"Google Reviews task is missing fields: {sorted(missing)}"
+                )
+
+            tag = str(source["task_tag"]).strip()
+            identifier_type = str(source["identifier_type"]).strip()
+            identifier_value = str(source["identifier_value"]).strip()
+            if not tag or len(tag) > 255:
+                raise ValueError("task_tag must contain 1 to 255 characters")
+            if tag in observed_tags:
+                raise ValueError("Google Reviews batch contains duplicate task tags")
+            if identifier_type not in {"place_id", "cid"}:
+                raise ValueError("Review identifier_type must be place_id or cid")
+            if not identifier_value:
+                raise ValueError("Review identifier_value cannot be blank")
+            observed_tags.add(tag)
+
+            depth = int(source["planned_depth"])
+            if not 1 <= depth <= 4490:
+                raise ValueError("Review depth must be between 1 and 4490")
+            sort_by = str(source["sort_by"])
+            if sort_by not in {
+                "newest",
+                "highest_rating",
+                "lowest_rating",
+                "relevant",
+            }:
+                raise ValueError("Invalid Google Reviews sort order")
+            request_row = {
+                identifier_type: identifier_value,
+                "location_code": int(source["location_code"]),
+                "language_code": str(source["language_code"]),
+                "depth": depth,
+                "sort_by": sort_by,
+                "tag": tag,
+            }
+            payload_rows.append(request_row)
+            source_rows.append(dict(source))
+
+        payload = self._request(
+            "POST",
+            url,
+            json=payload_rows,
+            validate_tasks=False,
+        )
+        response_tasks = payload.get("tasks") or []
+        if len(response_tasks) != len(payload_rows):
+            raise DataForSEOError(
+                "Google Reviews response task count does not match request count"
+            )
+
+        submitted_at = datetime.now(timezone.utc).isoformat()
+        records: list[dict[str, Any]] = []
+        for source, request_row, response_task in zip(
+            source_rows,
+            payload_rows,
+            response_tasks,
+            strict=True,
+        ):
+            response_data = response_task.get("data") or {}
+            response_tag = response_data.get("tag")
+            if response_tag is not None and str(response_tag) != request_row["tag"]:
+                raise DataForSEOError(
+                    "Google Reviews response tag does not match request order"
+                )
+            canonical = json.dumps(
+                request_row,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            status_code = response_task.get("status_code")
+            task_id = response_task.get("id")
+            submitted = (
+                status_code is not None
+                and int(status_code) < 40000
+                and bool(task_id)
+            )
+            records.append(
+                {
+                    **source,
+                    "task_id": None if task_id is None else str(task_id),
+                    "api_type": "google_reviews",
+                    "endpoint": url,
+                    "params_hash": hashlib.sha256(
+                        canonical.encode("utf-8")
+                    ).hexdigest(),
+                    "submitted_at_utc": submitted_at,
+                    "api_status_code": status_code,
+                    "api_status_message": response_task.get("status_message"),
+                    "api_cost_usd": response_task.get("cost"),
+                    "submission_status": "submitted" if submitted else "failed",
+                }
+            )
+        return records
 
     def submit_task(
         self,

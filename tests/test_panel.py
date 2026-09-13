@@ -1,7 +1,11 @@
 import pandas as pd
 import pytest
 
-from medical_ratings.panel import aggregate_reviews, build_cumulative_panel
+from medical_ratings.panel import (
+    aggregate_reviews,
+    build_cumulative_panel,
+    parse_mixed_datetime,
+)
 
 
 def test_panel_construction() -> None:
@@ -82,3 +86,31 @@ def test_panel_rejects_implicit_missing_entry_year_loss() -> None:
             yearly,
             end_year=2025,
         )
+
+
+def test_mixed_legacy_and_utc_review_dates_are_preserved() -> None:
+    values = pd.Series(
+        [
+            "2020-01-01",
+            "2025-06-01 12:30:00",
+            "2026-09-07 00:13:51 +00:00",
+            "2026-09-07T00:13:51Z",
+        ]
+    )
+
+    parsed = parse_mixed_datetime(values)
+
+    assert parsed.notna().all()
+    assert parsed.dt.year.tolist() == [2020, 2025, 2026, 2026]
+    assert parsed.dt.tz is None
+
+    reviews = pd.DataFrame(
+        {
+            "clinic_key": ["a", "a", "a", "a"],
+            "review_date": values,
+            "rating": [5, 4, 3, 2],
+        }
+    )
+    yearly = aggregate_reviews(reviews)
+    assert int(yearly["new_count"].sum()) == 4
+    assert yearly["year"].tolist() == [2020, 2025, 2026]

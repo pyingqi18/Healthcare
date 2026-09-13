@@ -114,3 +114,82 @@ def test_submit_review_task_requires_exactly_one_business_identifier() -> None:
             place_id="place-123",
             cid="cid-123",
         )
+
+
+def review_batch_task(cid: str) -> dict[str, object]:
+    return {
+        "task_tag": f"reviews:cid:{cid}",
+        "final_physical_location_id": f"location:{cid}",
+        "clinic_key": f"google:cid:{cid}",
+        "cid": cid,
+        "identifier_type": "place_id",
+        "identifier_value": f"place-{cid}",
+        "requested_location": "Syracuse_NY_M",
+        "location_code": 1023416,
+        "language_code": "en",
+        "sort_by": "newest",
+        "planned_depth": 120,
+    }
+
+
+def test_submit_review_batch_preserves_status_and_parameters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = DataForSEOClient("login", "password")
+    captured: dict[str, Any] = {}
+
+    def fake_request(method: str, url: str, **kwargs: Any) -> dict[str, Any]:
+        captured.update({"method": method, "url": url, **kwargs})
+        return {
+            "status_code": 20000,
+            "tasks": [
+                {
+                    "id": "review-task-100",
+                    "status_code": 20100,
+                    "status_message": "Task Created.",
+                    "cost": 0.009,
+                    "data": {"tag": "reviews:cid:100"},
+                },
+                {
+                    "id": None,
+                    "status_code": 40000,
+                    "status_message": "Failed.",
+                    "cost": 0,
+                    "data": {"tag": "reviews:cid:200"},
+                },
+            ],
+        }
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    records = client.submit_review_batch(
+        url="https://api.dataforseo.com/example/reviews/task_post",
+        tasks=[review_batch_task("100"), review_batch_task("200")],
+    )
+
+    assert captured["method"] == "POST"
+    assert captured["validate_tasks"] is False
+    assert captured["json"][0] == {
+        "place_id": "place-100",
+        "location_code": 1023416,
+        "language_code": "en",
+        "depth": 120,
+        "sort_by": "newest",
+        "tag": "reviews:cid:100",
+    }
+    assert records[0]["submission_status"] == "submitted"
+    assert records[0]["task_id"] == "review-task-100"
+    assert records[1]["submission_status"] == "failed"
+    assert len(str(records[0]["params_hash"])) == 64
+
+
+def test_submit_review_batch_rejects_more_than_100_tasks() -> None:
+    client = DataForSEOClient("login", "password")
+    try:
+        client.submit_review_batch(
+            url="https://api.dataforseo.com/example/reviews/task_post",
+            tasks=[review_batch_task(str(cid)) for cid in range(101)],
+        )
+    except ValueError as error:
+        assert "1 to 100" in str(error)
+    else:
+        raise AssertionError("Expected oversized review batch to fail")

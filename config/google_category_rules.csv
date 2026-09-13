@@ -1,0 +1,42 @@
+category,category_decision,reason
+Dentist,include,Google category identifies a dentist
+Dental clinic,include,Google category identifies a dental clinic
+Orthodontist,include,Dentist specialty included by the study taxonomy
+Emergency dental service,include,Dental provider category
+Oral surgeon,include,Dentist specialty included by the study taxonomy
+Pediatric dentist,include,Dentist specialty included by the study taxonomy
+Endodontist,include,Dentist specialty included by the study taxonomy
+Cosmetic dentist,include,Dental provider category
+Oral and maxillofacial surgeon,include,Dentist specialty included by the study taxonomy
+Periodontist,include,Dentist specialty included by the study taxonomy
+Dental implants provider,include,Dental provider category
+Dental implants periodontist,include,Dentist specialty included by the study taxonomy
+Prosthodontist,include,Dentist specialty included by the study taxonomy
+Dental laboratory,exclude,Auxiliary dental business rather than a dentist clinic
+Dental hygienist,exclude,Provider taxonomy excludes dental hygienists by default
+Teeth whitening service,exclude,Service category does not establish a dentist clinic
+Urgent care center,exclude,Non-dental medical category
+Emergency room,exclude,Non-dental medical category
+Otolaryngologist,exclude,Non-dental medical specialty
+Medical billing service,exclude,Administrative business rather than a clinic
+Corporate office,exclude,Office category does not identify a clinic location
+Dermatologist,exclude,Non-dental medical specialty
+Pharmacy,exclude,Non-dental business category
+Life insurance agency,exclude,Non-medical provider category
+University hospital,exclude,Non-dental medical facility category
+Nurse practitioner,exclude,Non-dental medical provider category
+Pediatrician,exclude,Non-dental medical specialty
+Supermarket,exclude,Non-medical business category
+Gastroenterologist,exclude,Non-dental medical specialty
+Orthopedic surgeon,exclude,Non-dental medical specialty
+Family practice physician,exclude,Non-dental medical specialty
+Personal injury attorney,exclude,Non-medical professional service category
+Medical clinic,manual_review,Category alone does not establish whether dental care is provided
+Community health center,manual_review,Category alone does not establish whether dental care is provided
+Surgical center,manual_review,Category alone does not establish whether oral surgery is provided
+Free clinic,manual_review,Category alone does not establish whether dental care is provided
+Medical group,manual_review,Category alone does not establish whether dental care is provided
+Public medical center,manual_review,Category alone does not establish whether dental care is provided
+Medical Center,manual_review,Category alone does not establish whether dental care is provided
+Doctor,manual_review,Category alone does not establish a dentist clinic
+Pediatric clinic,manual_review,Category alone does not establish whether dental care is provided

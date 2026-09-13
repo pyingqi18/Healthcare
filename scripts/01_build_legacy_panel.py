@@ -8,7 +8,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from medical_ratings.panel import aggregate_reviews, build_cumulative_panel
+from medical_ratings.panel import (
+    aggregate_reviews,
+    build_cumulative_panel,
+    parse_mixed_datetime,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -97,16 +101,14 @@ def build_legacy_panel(
     clinic_work = clinics.copy()
     review_work = reviews.copy()
 
-    clinic_work["entry_date_parsed"] = pd.to_datetime(
-        clinic_work["entry_date_proxy"],
-        errors="coerce",
+    clinic_work["entry_date_parsed"] = parse_mixed_datetime(
+        clinic_work["entry_date_proxy"]
     )
     clinic_work["entry_year"] = (
         clinic_work["entry_date_parsed"].dt.year.astype("Int64")
     )
-    review_work["review_date_parsed"] = pd.to_datetime(
-        review_work["review_date"],
-        errors="coerce",
+    review_work["review_date_parsed"] = parse_mixed_datetime(
+        review_work["review_date"]
     )
     review_work["rating_numeric_parsed"] = pd.to_numeric(
         review_work["rating_numeric"],

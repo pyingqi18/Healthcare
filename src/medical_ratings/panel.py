@@ -8,6 +8,18 @@ import pandas as pd
 from .validation import assert_unique
 
 
+def parse_mixed_datetime(values: pd.Series) -> pd.Series:
+    """Parse mixed legacy dates and timezone-aware API timestamps."""
+
+    parsed = pd.to_datetime(
+        values,
+        errors="coerce",
+        format="mixed",
+        utc=True,
+    )
+    return parsed.dt.tz_convert(None)
+
+
 def aggregate_reviews(
     reviews: pd.DataFrame,
     *,
@@ -24,7 +36,7 @@ def aggregate_reviews(
         raise KeyError(f"Missing review columns: {missing}")
 
     data = reviews[required].copy()
-    data[date_column] = pd.to_datetime(data[date_column], errors="coerce")
+    data[date_column] = parse_mixed_datetime(data[date_column])
     data[rating_column] = pd.to_numeric(data[rating_column], errors="coerce")
     data = data.dropna(subset=required)
     data["year"] = data[date_column].dt.year.astype(int)

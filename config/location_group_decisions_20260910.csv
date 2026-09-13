@@ -1,0 +1,28 @@
+left_location_group,right_location_group,location_decision,decision_reason,evidence_reference,evidence_checked_at_utc
+physical_location:5e04934f87c9a640,physical_location:7af95df9c58869de,keep_separate,Nearby address alone does not establish one practice,audit:distance_10.5m_different_phone,2026-09-10T00:00:00Z
+physical_location:17b369a967cdd2b2,physical_location:7f96a4a2e8140b70,keep_separate,Oral surgery and orthodontic practices have distinct phones and domains,audit:distinct_phone_domain,2026-09-10T00:00:00Z
+physical_location:0fd5b344a32b45d0,physical_location:cdbcb96dd9eca3f2,keep_separate,Different suites and phones identify separate practices,audit:suite_207_vs_204,2026-09-10T00:00:00Z
+physical_location:0fd5b344a32b45d0,physical_location:c6b0669c79a2c54a,keep_separate,Shared building proximity does not establish one practice,audit:distinct_phone_domain,2026-09-10T00:00:00Z
+physical_location:0fd5b344a32b45d0,physical_location:b925b84fcf2d4a98,keep_separate,Shared building proximity does not establish one practice,audit:distinct_phone,2026-09-10T00:00:00Z
+physical_location:4dc182968e60a21e,physical_location:b9719ad2ed944a67,keep_separate,Same address but no shared phone or domain evidence,audit:distinct_phone_domain,2026-09-10T00:00:00Z
+physical_location:7d31e5afbc2b1c21,physical_location:b9719ad2ed944a67,merge_groups,Simply Beautiful Smiles site now identifies the same Smilist location at 523 Charles Avenue,https://sbsmiles.org/,2026-09-10T00:00:00Z
+physical_location:c6b0669c79a2c54a,physical_location:cdbcb96dd9eca3f2,keep_separate,Distinct practice names phones and websites at a multi-tenant address,audit:distinct_phone_domain,2026-09-10T00:00:00Z
+physical_location:b925b84fcf2d4a98,physical_location:cdbcb96dd9eca3f2,keep_separate,Distinct phones at a multi-tenant address,audit:distinct_phone,2026-09-10T00:00:00Z
+physical_location:371399cc056ff303,physical_location:fd3eecc7d66f0343,keep_separate,Distinct providers and phones at the same building,audit:distinct_phone_domain,2026-09-10T00:00:00Z
+physical_location:064155df4e3c0772,physical_location:08d1b72efdc59a35,keep_separate,Non-dental pulmonary profile is excluded and must not absorb the dental profile,https://www.upstate.edu/pulmonary/,2026-09-10T00:00:00Z
+physical_location:1d3f2ee8f47e2e36,physical_location:c47c27aba226df33,keep_separate,Separate providers and phones within a medical building,audit:distinct_phone,2026-09-10T00:00:00Z
+physical_location:47714d839b7ce9e0,physical_location:d220c5d7e56c3480,merge_groups,Dental Implant Center is a service listing at the Martin and Winkler practice address,https://www.martinandwinklerdds.com/,2026-09-10T00:00:00Z
+physical_location:49abaf7f5d34a179,physical_location:5431328d5523b285,keep_separate,Provider pages use distinct phones and no common practice identity was verified,audit:distinct_phone,2026-09-10T00:00:00Z
+physical_location:c6b0669c79a2c54a,physical_location:e236a356b2164f38,keep_separate,Generic nearby listing lacks evidence needed for a merge,audit:insufficient_identity_evidence,2026-09-10T00:00:00Z
+physical_location:cdbcb96dd9eca3f2,physical_location:e236a356b2164f38,keep_separate,Generic nearby listing lacks evidence needed for a merge,audit:insufficient_identity_evidence,2026-09-10T00:00:00Z
+physical_location:b925b84fcf2d4a98,physical_location:e236a356b2164f38,keep_separate,Generic nearby listing lacks evidence needed for a merge,audit:insufficient_identity_evidence,2026-09-10T00:00:00Z
+physical_location:164df9acb1ff49ed,physical_location:d0c3454339c77a7f,merge_groups,CNY Dental Sleep states that it shares the same Suite 110 office with CNY Dental Arts,https://www.cnydentalsleep.com/,2026-09-10T00:00:00Z
+physical_location:8aef647dae282161,physical_location:8e1f1ca6fe8dedd8,keep_separate,Neighboring street addresses and distinct phones indicate separate locations,audit:447_vs_451_e_main,2026-09-10T00:00:00Z
+physical_location:4dc182968e60a21e,physical_location:7d31e5afbc2b1c21,keep_separate,Same address but no verified link between Falcone and the current organization listing,audit:distinct_phone,2026-09-10T00:00:00Z
+physical_location:ae30ab7f02e1bac2,physical_location:f2cde47b5a3c9f68,merge_groups,Near-identical organization names share the exact address,audit:same_address_near_identical_organization_title,2026-09-10T00:00:00Z
+physical_location:6d4f41f5c89fecbe,physical_location:7a290e7d50e398c7,keep_separate,Oakridge is excluded as an unverified duplicate profile rather than merged,audit:excluded_unverified_profile,2026-09-10T00:00:00Z
+physical_location:b925b84fcf2d4a98,physical_location:c6b0669c79a2c54a,keep_separate,Distinct phones and domain at a multi-tenant address,audit:distinct_phone_domain,2026-09-10T00:00:00Z
+physical_location:52f60df0db3a89b4,physical_location:f257ea12a4d755ee,keep_separate,Distinct specialty practice and provider phone at a multi-tenant address,audit:distinct_phone_domain,2026-09-10T00:00:00Z
+physical_location:028af7cf2da7f2fb,physical_location:214a185bacc99e65,merge_groups,Provider and organization listings share the same address and phone,audit:same_phone_same_base_address,2026-09-10T00:00:00Z
+physical_location:ec1935d6392053be,physical_location:f98f3b665a8d1c7c,merge_groups,Two provider listings share the exact Malone dental-office address,audit:exact_address_two_provider_profiles,2026-09-10T00:00:00Z
+physical_location:18d5ae751e799dfc,physical_location:2e03eae48d64f242,keep_separate,Same building but distinct phones and no verified practice affiliation,https://smilesbyjpd.com/,2026-09-10T00:00:00Z
