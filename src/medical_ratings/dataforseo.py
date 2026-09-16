@@ -13,6 +13,9 @@ from typing import Any
 import requests
 
 
+USER_DATA_URL = "https://api.dataforseo.com/v3/appendix/user_data"
+
+
 class DataForSEOError(RuntimeError):
     """Raised when an HTTP or task-level DataForSEO operation fails."""
 
@@ -64,7 +67,11 @@ class DataForSEOClient:
     """Small synchronous client for task-based DataForSEO endpoints."""
 
     def __init__(self, login: str, password: str, *, timeout: float = 60.0) -> None:
-        self.auth = (login, password)
+        clean_login = login.strip()
+        clean_password = password.strip()
+        if not clean_login or not clean_password:
+            raise ValueError("DataForSEO login and password cannot be blank")
+        self.auth = (clean_login, clean_password)
         self.timeout = timeout
         self.session = requests.Session()
 
@@ -110,6 +117,20 @@ class DataForSEOClient:
         payload = response.json()
         self._validate_response(payload, validate_tasks=validate_tasks)
         return payload
+
+    def check_authentication(self) -> dict[str, Any]:
+        """Call the free user-data endpoint and return a credential-safe summary."""
+
+        payload = self._request(
+            "GET",
+            USER_DATA_URL,
+            validate_tasks=False,
+        )
+        api_status = payload.get("status_code")
+        return {
+            "api_status": api_status,
+            "authenticated": api_status == 20000,
+        }
 
     def submit_business_info_batch(
         self,

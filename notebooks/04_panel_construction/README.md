@@ -1,5 +1,5 @@
-# Panel Construction References
+面板构建历史参考
 
-Entry `007` introduces historical review panels. Entries `010` through `013` contain the latest cumulative outcomes and spatial exposure logic.
+`007`开始按评论年份构建诊所面板，编号`010`至`013`继续加入累计评分和空间变量。
+当前维护代码是`src/medical_ratings/panel.py`。先用2008年开始的历史评论累计，再标记2015至2025年分析期，避免把2015年前已有评论错误丢掉。空间资格与exposure逻辑分别在`spatial.py`和后续正式exposure模块中维护。
 
-Use `src/medical_ratings/panel.py` and `src/medical_ratings/spatial.py` for maintained work.

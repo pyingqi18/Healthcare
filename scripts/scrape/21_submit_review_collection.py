@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import argparse
-import getpass
 import json
-import os
 from pathlib import Path
 import time
 
 import pandas as pd
 import yaml
 
+from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
 
 
@@ -167,20 +166,6 @@ def read_settings(path: Path) -> dict[str, object]:
     return settings
 
 
-def read_credentials() -> tuple[str, str]:
-    """Read credentials from this process or prompt without saving them."""
-
-    login = os.environ.get("DATAFORSEO_LOGIN")
-    if not login:
-        login = input("DataForSEO API login: ").strip()
-    password = os.environ.get("DATAFORSEO_PASSWORD")
-    if not password:
-        password = getpass.getpass("DataForSEO API password: ").strip()
-    if not login or not password:
-        raise RuntimeError("DataForSEO login and API password are required")
-    return login, password
-
-
 def main() -> int:
     args = parse_arguments()
     manifest = pd.read_csv(
@@ -222,7 +207,7 @@ def main() -> int:
         print("All manifest tasks were previously submitted.")
         return 0
 
-    login, password = read_credentials()
+    login, password = require_dataforseo_credentials()
     endpoints = dataforseo.get("endpoints")
     if not isinstance(endpoints, dict) or not endpoints.get("reviews_post"):
         raise KeyError("settings.yaml is missing reviews_post")

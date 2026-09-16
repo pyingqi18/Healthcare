@@ -7,6 +7,26 @@ import pytest
 from medical_ratings.dataforseo import DataForSEOClient
 
 
+def test_authentication_uses_shared_request_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = DataForSEOClient(" login ", " password ")
+    captured: dict[str, Any] = {}
+
+    def fake_request(method: str, url: str, **kwargs: Any) -> dict[str, Any]:
+        captured.update({"method": method, "url": url, **kwargs})
+        return {"status_code": 20000}
+
+    monkeypatch.setattr(client, "_request", fake_request)
+
+    assert client.check_authentication() == {
+        "api_status": 20000,
+        "authenticated": True,
+    }
+    assert captured["method"] == "GET"
+    assert captured["validate_tasks"] is False
+
+
 def test_submit_search_task_preserves_tag(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

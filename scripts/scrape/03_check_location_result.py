@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
 from typing import Any, Mapping
 
 import pandas as pd
 import yaml
 
+from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
 
 
@@ -91,12 +91,7 @@ def summarize_task_payload(
 
 def main() -> int:
     args = parse_arguments()
-    login = os.environ.get("DATAFORSEO_LOGIN")
-    password = os.environ.get("DATAFORSEO_PASSWORD")
-    if not login or not password:
-        raise RuntimeError(
-            "Set DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD first"
-        )
+    login, password = require_dataforseo_credentials()
 
     task_log = pd.read_csv(args.task_log, low_memory=False)
     row = select_submitted_task(task_log, args.task_tag)

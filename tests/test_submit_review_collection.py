@@ -83,20 +83,3 @@ def test_validate_manifest_rejects_identifier_drift() -> None:
         assert "does not match" in str(error)
     else:
         raise AssertionError("Expected identifier drift to fail")
-
-
-def test_read_credentials_prompts_and_hides_password(monkeypatch) -> None:
-    module = load_script()
-    monkeypatch.delenv("DATAFORSEO_LOGIN", raising=False)
-    monkeypatch.delenv("DATAFORSEO_PASSWORD", raising=False)
-    monkeypatch.setattr("builtins.input", lambda prompt: "api-login")
-    monkeypatch.setattr(
-        module.getpass,
-        "getpass",
-        lambda prompt: "api-password",
-    )
-
-    login, password = module.read_credentials()
-
-    assert login == "api-login"
-    assert password == "api-password"

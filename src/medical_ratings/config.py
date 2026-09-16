@@ -38,6 +38,7 @@ def load_settings(path: str | Path, *, load_environment: bool = True) -> dict[st
 def require_dataforseo_credentials() -> tuple[str, str]:
     """Return DataForSEO credentials from environment variables."""
 
+    load_dotenv()
     login = os.getenv("DATAFORSEO_LOGIN")
     password = os.getenv("DATAFORSEO_PASSWORD")
     if not login or not password:

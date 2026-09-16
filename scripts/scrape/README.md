@@ -32,8 +32,8 @@
 
 8. 账号和费用
    01、11和21会提交付费任务，不能在没有确认任务日志的情况下重复运行。
-   01至04、11和12从当前终端的DATAFORSEO_LOGIN和DATAFORSEO_PASSWORD读取凭据。
-   21和22可以在运行时输入账号，API password使用隐藏输入。凭据不写入.env、settings.yaml、代码或任务日志。
+   01至04、11、12、21和22统一通过config.require_dataforseo_credentials读取DATAFORSEO_LOGIN和DATAFORSEO_PASSWORD。
+   所有HTTP请求统一经过DataForSEOClient；提交使用POST，结果读取使用GET。凭据不写入settings.yaml、代码或任务日志，也不再通过脚本交互输入。
 
 9. 不应手动修改的文件
    原始JSON、任务日志以及脚本生成的CSV和JSON不应手动修改。

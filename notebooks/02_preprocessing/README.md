@@ -1,5 +1,4 @@
-# Preprocessing References
+预处理历史参考
 
-Historical parsing and source-merging logic appears in entries `001` through `005`.
-
-New work should use stable clinic-location identifiers, preserve raw API metadata, and retain rating-count discrepancies as diagnostics.
+`001`至`005`包含旧解析、名称清理和不同数据来源合并。解释字段从哪里来，但其中很多连接依赖title和ZIP，碰到缺失ZIP或同名诊所时容易出错。
+当前正式预处理要求优先使用place ID或CID建立稳定身份。没有稳定Google ID时才使用标准化名称、ZIP和坐标作为fallback。来源评分和评论重新计算评分不一致时，应保留差异供审计，不能直接覆盖表格。

@@ -1,5 +1,3 @@
-# NLP References
-
-Entries `010` through `013` construct review-text traits and clinic-year NLP ratios.
-
-Future runs must record model name, model version, labels, prompt or classification logic, sampling rules, and cleaning rules.
+NLP历史参考
+`010`至`013`把评论文本转换成clinic-year层面的文本特征和比例。属于后续扩展，目前不进入冻结主回归。
+如果重新运行NLP，要记录模型名称、版本、标签定义、prompt或分类规则、抽样方法、清理规则和运行日期。模型或prompt变了，输出就应当算新版本，不能覆盖旧结果后继续使用同一个变量名。

@@ -1,0 +1,147 @@
+version: 1
+
+pipeline:
+  name: medical_ratings_reproducible_workflow
+  project_root: ..
+  run_root: outputs/pipeline_runs
+
+variables:
+  panel: data/processed/corrected_v1/clinic_year_panel.csv
+  clinics: data/processed/corrected_v1/clinics_eligibility_flagged.csv
+  pipeline_output: outputs/pipeline/corrected_v1_audit
+  strict_2mile_output: "{pipeline_output}/strict_009a_2mile"
+  strict_self_output: "{pipeline_output}/strict_009a_self_excluded_2mile"
+
+profiles:
+  corrected_v1_audit:
+    stages:
+      - regression_readiness
+      - strict_2mile
+      - strict_self_exclusion
+      - strict_year_effects
+      - strict_market_year_effects
+      - strict_spatial_suite
+
+  full_rebuild:
+    blocked: true
+    blocked_reason: >-
+      Full-market acquisition is not yet reusable. Existing scrape scripts retain
+      Malone/Syracuse run paths, batch-specific expected counts, and replacement
+      totals. The final analysis design is frozen in config/final_analysis.yaml,
+      but it cannot run until uniform acquisition and final exposure builders exist.
+    stages: []
+
+stages:
+  regression_readiness:
+    description: Audit corrected_v1 regression inputs without estimating a model.
+    command:
+      - "{python}"
+      - scripts/audit/01_audit_regression_readiness.py
+      - --panel
+      - "{panel}"
+      - --output
+      - "{pipeline_output}/regression_readiness.json"
+    inputs:
+      - "{panel}"
+    outputs:
+      - "{pipeline_output}/regression_readiness.json"
+
+  strict_2mile:
+    description: Reproduce the strict 009a two-mile corrected-data baseline.
+    depends_on:
+      - regression_readiness
+    command:
+      - "{python}"
+      - scripts/11_run_strict_legacy_2mile_corrected_data.py
+      - --panel
+      - "{panel}"
+      - --clinics
+      - "{clinics}"
+      - --output-directory
+      - "{strict_2mile_output}"
+    inputs:
+      - "{panel}"
+      - "{clinics}"
+    outputs:
+      - "{strict_2mile_output}/strict_009a_2mile_panel.csv"
+      - "{strict_2mile_output}/strict_009a_2mile_exposure_metadata.json"
+      - "{strict_2mile_output}/strict_009a_2mile_regression_metadata.json"
+
+  strict_self_exclusion:
+    description: Exclude focal-clinic self-entry on the frozen strict sample.
+    depends_on:
+      - strict_2mile
+    command:
+      - "{python}"
+      - scripts/12_compare_strict_009a_self_exclusion.py
+      - --strict-panel
+      - "{strict_2mile_output}/strict_009a_2mile_panel.csv"
+      - --clinics
+      - "{clinics}"
+      - --output-directory
+      - "{strict_self_output}"
+    inputs:
+      - "{strict_2mile_output}/strict_009a_2mile_panel.csv"
+      - "{clinics}"
+    outputs:
+      - "{strict_self_output}/strict_009a_self_excluded_2mile_panel.csv"
+      - "{strict_self_output}/strict_009a_self_excluded_exposure_metadata.json"
+      - "{strict_self_output}/strict_009a_self_excluded_regression_metadata.json"
+
+  strict_year_effects:
+    description: Compare strict Entity FE with Entity plus common Year FE.
+    depends_on:
+      - strict_self_exclusion
+    command:
+      - "{python}"
+      - scripts/13_compare_strict_009a_year_fixed_effects.py
+      - --panel
+      - "{strict_self_output}/strict_009a_self_excluded_2mile_panel.csv"
+      - --output-directory
+      - "{pipeline_output}/strict_009a_entity_year_fe"
+    inputs:
+      - "{strict_self_output}/strict_009a_self_excluded_2mile_panel.csv"
+    outputs:
+      - "{pipeline_output}/strict_009a_entity_year_fe/strict_009a_entity_year_fe_metadata.json"
+      - "{pipeline_output}/strict_009a_entity_year_fe/strict_009a_entity_vs_entity_year_fe.csv"
+
+  strict_market_year_effects:
+    description: Compare strict common Year FE with strict ZIP-market-by-year FE.
+    depends_on:
+      - strict_year_effects
+    command:
+      - "{python}"
+      - scripts/14_compare_strict_009a_market_year_fixed_effects.py
+      - --panel
+      - "{strict_self_output}/strict_009a_self_excluded_2mile_panel.csv"
+      - --clinics
+      - "{clinics}"
+      - --output-directory
+      - "{pipeline_output}/strict_009a_market_year_fe"
+    inputs:
+      - "{strict_self_output}/strict_009a_self_excluded_2mile_panel.csv"
+      - "{clinics}"
+    outputs:
+      - "{pipeline_output}/strict_009a_market_year_fe/strict_009a_market_year_fe_metadata.json"
+      - "{pipeline_output}/strict_009a_market_year_fe/strict_009a_year_vs_market_year_fe.csv"
+
+  strict_spatial_suite:
+    description: Run strict gravity, KNN, rings, and half-mile audit models.
+    depends_on:
+      - strict_market_year_effects
+    command:
+      - "{python}"
+      - scripts/15_run_strict_spatial_suite.py
+      - --panel
+      - "{panel}"
+      - --clinics
+      - "{clinics}"
+      - --output-directory
+      - "{pipeline_output}/strict_spatial_suite"
+    inputs:
+      - "{panel}"
+      - "{clinics}"
+    outputs:
+      - "{pipeline_output}/strict_spatial_suite/strict_spatial_suite_metadata.json"
+      - "{pipeline_output}/strict_spatial_suite/strict_spatial_regression_metadata.json"
+      - "{pipeline_output}/strict_spatial_suite/strict_spatial_coefficients.csv"

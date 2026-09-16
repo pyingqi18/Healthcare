@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import time
 from pathlib import Path
 
 import pandas as pd
 import yaml
 
+from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
 
 
@@ -153,12 +153,7 @@ def main() -> None:
         )
         return
 
-    login = os.environ.get("DATAFORSEO_LOGIN")
-    password = os.environ.get("DATAFORSEO_PASSWORD")
-    if not login or not password:
-        raise RuntimeError(
-            "Set DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD before submission"
-        )
+    login, password = require_dataforseo_credentials()
 
     settings = read_settings(args.settings)
     dataforseo = settings.get("dataforseo")

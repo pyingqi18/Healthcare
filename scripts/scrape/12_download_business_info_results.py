@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +12,7 @@ from typing import Any, Mapping
 import pandas as pd
 import yaml
 
+from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
 
 
@@ -187,10 +187,7 @@ def main() -> int:
         print("Validation only. No result requests were sent.")
         return 0
 
-    login = os.environ.get("DATAFORSEO_LOGIN")
-    password = os.environ.get("DATAFORSEO_PASSWORD")
-    if not login or not password:
-        raise RuntimeError("Set DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD first")
+    login, password = require_dataforseo_credentials()
     settings = yaml.safe_load(args.settings.read_text(encoding="utf-8"))
     dataforseo = settings["dataforseo"]
     endpoint = str(dataforseo["endpoints"]["business_info_get"])

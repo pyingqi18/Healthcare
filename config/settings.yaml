@@ -41,17 +41,12 @@ study:
   exploratory_failure_threshold: 3.5
   strong_rating_threshold: 4.9
   exit_inactivity_years: 2
-  minimum_treatment_year: 2014
+  minimum_treatment_year: 2015
   event_window_start: -3
   event_window_end: 5
   distance_quantiles: [0.25, 0.50]
   preferred_identity_fields: [place_id, cid]
   fallback_identity_fields: [normalized_title, zip, latitude, longitude]
 
-model:
-  main_outcome: dynamic_rating
-  main_exposure: log_lag_entry_shock_25pct
-  density_control: log_density_25pct_total
-  include_log_votes_by_default: false
-  fixed_effects: [clinic_id, market_year]
-  cluster_by: clinic_id
+analysis:
+  contract: config/final_analysis.yaml

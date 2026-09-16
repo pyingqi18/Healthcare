@@ -32,28 +32,26 @@ def test_authentication_summary_does_not_expose_credentials(
         "check_dataforseo_auth",
     )
 
-    class FakeResponse:
-        status_code = 200
-
-        @staticmethod
-        def json() -> dict[str, Any]:
-            return {"status_code": 20000, "tasks": [{"result": [{}]}]}
-
     captured: dict[str, Any] = {}
 
-    def fake_get(url: str, **kwargs: Any) -> FakeResponse:
-        captured.update({"url": url, **kwargs})
-        return FakeResponse()
+    def fake_request(
+        self: Any,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        captured.update({"method": method, "url": url, **kwargs})
+        return {"status_code": 20000, "tasks": [{"result": [{}]}]}
 
-    monkeypatch.setattr(module.requests, "get", fake_get)
+    monkeypatch.setattr(module.DataForSEOClient, "_request", fake_request)
     summary = module.check_authentication(" login ", " password ")
 
     assert summary == {
-        "http_status": 200,
         "api_status": 20000,
         "authenticated": True,
     }
-    assert captured["auth"] == ("login", "password")
+    assert captured["method"] == "GET"
+    assert captured["validate_tasks"] is False
     assert "login" not in summary
     assert "password" not in summary
 

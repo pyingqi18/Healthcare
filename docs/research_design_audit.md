@@ -73,6 +73,16 @@ Required fix:
 
 Use a prespecified physical radius as the main exposure. Treat percentile radii as a heterogeneity or normalization robustness check. Restrict every neighbor query to the same intended market.
 
+Current status:
+
+The address-based competition-unit branch is frozen as a sensitivity diagnostic.
+The legacy main analysis unit remains `clinic_key` because co-location does not
+verify common clinic identity. Recent notebooks used fixed 2-mile counts,
+0-to-0.5/0.5-to-2/2-to-5-mile rings, five-mile gravity weights, nearest and
+fifth-neighbor distances, and market-specific P25/P50 radii. These methods must
+be documented and registered before any coefficient is reviewed. See
+`docs/spatial_distance_design_status.md`.
+
 ### 8. Baseline fixed effects vary across specifications
 
 Some models use entity effects only, some use entity and year effects, and later models use entity plus city-year, ZIP3-year, or ZIP5-year effects. These specifications estimate different comparisons.

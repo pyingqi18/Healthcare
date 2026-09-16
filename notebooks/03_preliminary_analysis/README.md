@@ -1,5 +1,4 @@
-# Preliminary Analysis References
+初步分析历史参考
 
-Entries `003` through `009a` contain rating distributions, geographic comparisons, spatial clusters, and exploratory competition measures.
-
-These analyses are exploratory and should not determine the confirmatory model after results are inspected.
+`003`至`009a`包含评分分布、地区比较、空间聚类和早期竞争指标。
+现在所有正式方法已经在`config/final_analysis.yaml`与空间方法登记表中分开

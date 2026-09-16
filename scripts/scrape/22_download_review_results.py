@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
-import getpass
 import json
-import os
 from pathlib import Path
 import time
 from typing import Any, Mapping
@@ -14,6 +12,7 @@ from typing import Any, Mapping
 import pandas as pd
 import yaml
 
+from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
 
 
@@ -57,20 +56,6 @@ def parse_arguments() -> argparse.Namespace:
         help="Fetch results. Without this flag, only validate the plan.",
     )
     return parser.parse_args()
-
-
-def read_credentials() -> tuple[str, str]:
-    """Read credentials from this process or prompt without saving them."""
-
-    login = os.environ.get("DATAFORSEO_LOGIN")
-    if not login:
-        login = input("DataForSEO API login: ").strip()
-    password = os.environ.get("DATAFORSEO_PASSWORD")
-    if not password:
-        password = getpass.getpass("DataForSEO API password: ").strip()
-    if not login or not password:
-        raise RuntimeError("DataForSEO login and API password are required")
-    return login, password
 
 
 def build_download_plan(
@@ -240,7 +225,7 @@ def main() -> int:
         print("Validation only. No result requests were sent.")
         return 0
 
-    login, password = read_credentials()
+    login, password = require_dataforseo_credentials()
     settings = yaml.safe_load(args.settings.read_text(encoding="utf-8")) or {}
     dataforseo = settings["dataforseo"]
     endpoint = str(dataforseo["endpoints"]["reviews_get"])

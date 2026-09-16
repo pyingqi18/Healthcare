@@ -1,0 +1,106 @@
+version: 1
+
+status:
+  name: frozen_before_full_rebuild
+  results_authorized: false
+  reason: >-
+    The design is frozen before uniform full-market acquisition. Estimates from
+    corrected_v1 remain audit results and must not be relabeled as final.
+
+data:
+  development_dataset: data/processed/corrected_v1
+  final_dataset: data/processed/full_rebuild_v1
+  history_start_year: 2008
+  analysis_start_year: 2015
+  analysis_end_year: 2025
+  excluded_partial_years: [2026]
+  outcome_entity: clinic_key
+  market_column: search_location
+  eligibility_columns:
+    - analysis_period
+    - spatial_analysis_eligible
+  require_unique_entity_year: true
+  require_uniform_acquisition_across_markets: true
+
+main_specification:
+  id: final_fixed_2mile_entity_market_year_v1
+  outcome: dynamic_rating
+  exposure:
+    method: fixed_radius_prior_year_entry
+    radius_miles: 2.0
+    transform: log1p
+    entry_lag_years: 1
+    exclude_focal_entity: true
+    restrict_neighbors_to_same_market: true
+    distance_boundary: inclusive
+  density_control:
+    method: fixed_radius_incumbent_stock
+    radius_miles: 2.0
+    transform: log1p
+    timing: end_of_t_minus_2
+    excludes_t_minus_1_entrants: true
+    exclude_focal_entity: true
+  controls: []
+  fixed_effects:
+    - clinic_key
+    - search_location_by_year
+  covariance:
+    primary: cluster_clinic_key
+  interpretation: conditional_association
+
+common_sample:
+  freeze_before_comparing_spatial_methods: true
+  require_nonmissing:
+    - clinic_key
+    - year
+    - search_location
+    - dynamic_rating
+    - latitude
+    - longitude
+    - entry_year
+  same_years_across_models: true
+  same_entities_across_models: true
+  record_sample_flow: true
+
+sensitivity_specifications:
+  controls:
+    - id: add_log_votes_dynamic
+      additions: [log_votes_dynamic]
+      same_sample_as_main: true
+    - id: omit_density_control
+      additions: []
+      remove: [density_control]
+      same_sample_as_main: true
+  fixed_effects:
+    - entity_only_legacy_comparison
+    - entity_year
+  spatial_methods:
+    confirmatory:
+      - fixed_0p5mile
+      - fixed_rings_0_0p5_0p5_2_2_5
+      - market_pairwise_p25_p50
+    exploratory:
+      - gravity_inverse_5mile
+      - nearest_prior_year_entrant_5mile
+      - fifth_active_competitor_5mile
+  identity:
+    - address_based_competition_unit_exposure
+  outcomes:
+    - annual_rating
+    - annual_low_review_share
+
+reporting:
+  report_all_registered_models: true
+  distinguish_confirmatory_and_exploratory: true
+  multiple_testing_adjustment: holm_within_spatial_family
+  retain_unadjusted_p_values: true
+  prohibit_causal_language_without_additional_identification: true
+  required_outputs:
+    - sample_flow
+    - exposure_distribution
+    - residualized_exposure_variation
+    - coefficient_table
+    - confidence_intervals
+    - model_metadata
+    - input_output_hashes
+

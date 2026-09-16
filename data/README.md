@@ -1,22 +1,23 @@
 1. 文件夹用途
-   data保存研究输入、中间结果和正式冻结数据。实际数据不提交到Git。
-
+data保存研究输入、中间结果和正式冻结数据。实际数据不提交到Git。
 2. legacy
-   data/legacy保存旧流程产生的原始诊所、评论、时间线、NLP和面板文件。只作为历史输入，不直接修改。
-
+data/legacy保存旧流程产生的原始诊所、评论、时间线、NLP和面板文件。只作为历史输入，不直接修改。
 3. raw
-   data/raw保存DataForSEO任务日志和原始JSON。原始结果按run name和task_id保存，必须另行备份。
-
+data/raw保存DataForSEO任务日志和原始JSON。目录按run name划分，文件按task ID追踪。
 4. interim
-   data/interim保存解析表、审计表、候选审核表和实体地点整理结果。这些文件由脚本生成，不手动修改。
-
+data/interim保存解析表、审计表、候选审核表和profile到地点的crosswalk等中间文件。这些文件由脚本生成，不手动修改。人工决定写在`config/`，然后由脚本重新应用。
 5. processed
-   data/processed保存可以进入面板和分析的冻结数据。
-   legacy_v1是旧数据安全重建基线。corrected_v1是替换Malone与Syracuse错误批次后的当前正式版本。
-
+data/processed保存可以进入面板和分析的冻结数据。
+legacy\_v1        旧数据经过安全身份连接后的重建基线
+corrected\_v1     替换Malone和Syracuse错误批次后的审计版本
+full\_rebuild\_v1  未来全部市场统一重抓后生成的正式候选版本
+当前`corrected\_v1`的主要输入是：
+data/processed/corrected\_v1/clinics\_eligibility\_flagged.csv
+data/processed/corrected\_v1/reviews\_eligibility\_flagged.csv
+data/processed/corrected\_v1/clinic\_year\_panel.csv
+`corrected\_v1`有5674家诊所、761007条评论和37474个clinic-year。它可以用于审计和模型开发，但因为13个市场仍主要来自legacy抓取，所以不能改名成最终数据。
 6. external
-   data/external保存NPPES等外部数据。需要记录来源、下载日期和版本。
+data/external保存NPPES等外部数据。需要记录来源、下载日期和版本。
 
-7. 当前正式输入
-   纠正后诊所表为data/processed/corrected_v1/clinics_eligibility_flagged.csv。
-   纠正后评论表为data/processed/corrected_v1/reviews_eligibility_flagged.csv。
+
+
