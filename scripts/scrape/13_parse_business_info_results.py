@@ -10,16 +10,13 @@ from typing import Any, Mapping
 import pandas as pd
 
 from medical_ratings.parsing import parse_business_info_payload
+from medical_ratings.scrape_safety import expected_task_count
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
-EXPECTED_TASK_COUNT = 769
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_RESULTS_DIRECTORY = (
-    Path("data/raw") / DEFAULT_RUN_NAME / "business_info_results"
-)
-DEFAULT_OUTPUT = (
-    Path("data/interim") / DEFAULT_RUN_NAME / "business_info_profiles.csv"
-)
 REQUIRED_LOG_COLUMNS = {
     "task_id",
     "task_tag",
@@ -35,13 +32,21 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Parse exact-CID Business Info raw result JSON."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--results-directory",
         type=Path,
-        default=DEFAULT_RESULTS_DIRECTORY,
+        default=None,
     )
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    return parser.parse_args()
+    parser.add_argument("--output", type=Path, default=None)
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "results_directory": ("raw", "business_info_results"),
+            "output": ("interim", "business_info_profiles.csv"),
+        },
+    )
 
 
 def _payload_tag(payload: Mapping[str, Any]) -> str | None:
@@ -70,6 +75,8 @@ def parse_downloaded_business_info(
     ].copy()
     if downloaded.empty:
         raise ValueError("Result log contains no downloaded tasks")
+    if len(downloaded) != len(latest):
+        raise ValueError("Not all Business Info tasks have downloaded results")
     if not downloaded["task_tag"].is_unique:
         raise ValueError("Downloaded task tags are not unique")
 
@@ -165,17 +172,14 @@ def main() -> int:
     raw_directory = args.results_directory / "raw"
     result_log = pd.read_csv(log_path, dtype={"cid": "string"}, low_memory=False)
     latest = result_log.drop_duplicates("task_tag", keep="last")
-    if len(latest) != EXPECTED_TASK_COUNT:
-        raise ValueError(
-            f"Expected {EXPECTED_TASK_COUNT} result tasks, found {len(latest)}"
-        )
+    result_task_count = expected_task_count(latest)
     profiles = parse_downloaded_business_info(result_log, raw_directory)
     write_csv_atomic(profiles, args.output)
     print(
         json.dumps(
             summarize_profiles(
                 profiles,
-                result_task_count=len(latest),
+                result_task_count=result_task_count,
                 output_path=args.output,
             ),
             indent=2,

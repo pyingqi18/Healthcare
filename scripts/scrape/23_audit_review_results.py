@@ -12,39 +12,48 @@ from medical_ratings.review_result_audit import (
     audit_downloaded_review_results,
     summarize_review_audit,
 )
-
-
-EXPECTED_TASK_COUNT = 109
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_RAW_DIRECTORY = Path("data/raw") / DEFAULT_RUN_NAME
-DEFAULT_INTERIM_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
+from medical_ratings.scrape_safety import expected_task_count
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Audit every downloaded Google Reviews raw result."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--task-log",
         type=Path,
-        default=DEFAULT_RAW_DIRECTORY / "review_task_log.csv",
+        default=None,
     )
     parser.add_argument(
         "--raw-directory",
         type=Path,
-        default=DEFAULT_RAW_DIRECTORY / "review_results" / "raw",
+        default=None,
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_INTERIM_DIRECTORY / "review_result_audit.csv",
+        default=None,
     )
     parser.add_argument(
         "--summary",
         type=Path,
-        default=DEFAULT_INTERIM_DIRECTORY / "review_result_audit_summary.json",
+        default=None,
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "task_log": ("raw", "review_task_log.csv"),
+            "raw_directory": ("raw", "review_results/raw"),
+            "output": ("interim", "review_result_audit.csv"),
+            "summary": ("interim", "review_result_audit_summary.json"),
+        },
+    )
 
 
 def write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:
@@ -71,15 +80,19 @@ def main() -> int:
         dtype={"cid": "string", "place_id": "string"},
         low_memory=False,
     )
+    submitted = task_log.loc[
+        task_log["submission_status"].eq("submitted")
+    ].drop_duplicates("task_tag", keep="last")
+    task_count = expected_task_count(submitted)
     audit, review_ids = audit_downloaded_review_results(
         task_log,
         args.raw_directory,
-        expected_task_count=EXPECTED_TASK_COUNT,
+        expected_task_count=task_count,
     )
     raw_json_files = sum(1 for _ in args.raw_directory.glob("*.json"))
-    if raw_json_files != EXPECTED_TASK_COUNT:
+    if raw_json_files != task_count:
         raise ValueError(
-            f"Expected {EXPECTED_TASK_COUNT} raw JSON files, "
+            f"Expected {task_count} raw JSON files, "
             f"found {raw_json_files}"
         )
     summary = summarize_review_audit(

@@ -18,6 +18,24 @@ python -m pytest -m "not real_data" -q
 
 * `test_business_info_backfill.py`：验证Business Info补抓清单只选择未解决候选，并正确计算批次数、成本和CID约束。
 * `test_business_info_parsing.py`：验证Business Info响应解析会保留商家字段、资料身份和抓取来源信息。
+* `test_business_listings_pilot.py`：验证13个官方牙科类别、四项两市场试验、参考地点半径覆盖和三档召回率决定规则。
+* `test_business_listings_live.py`：验证四请求付费门、ZIP过滤参数、Live完成状态与结果数量一致性、身份字段、CID/place_id去重、大市场分页参数、跨页连续覆盖审计及rollout缺页拦截。
+* `test_business_listings_comparison.py`：验证pilot及单市场rollout的美国ZIP、加拿大邮编和缺失邮编分类、类别资格、competition unit参考折叠、旧参考地点地理口径、需要身份佐证的10米匹配规则、全部完成页费用和召回率决定。
+* `test_business_listings_manual_audit.py`：验证当前竞争地点、评分profile和历史面板三种资格分别处理，并用人工证据调整旧参考召回率分母。
+* `test_business_listings_location_audit.py`：验证Business Listings竞争候选只生成profile-to-location审核pair和临时block，排除候选不参与且不会自动合并。
+* `test_business_listings_location_triage.py`：验证多profile block按共享身份证据和链式连接风险分档，单profile block不进入人工队列且所有分档仍保持零自动合并。
+* `test_business_listings_location_resolution.py`：验证竞争地点归并与评分profile身份分离、复杂区块决定完整性、canonical profile组内约束以及零rating合并。
+* `test_business_listings_competition_universe.py`：验证新发现地点与legacy carry-forward的完整合并、重复地点拦截、canonical唯一性及carry-forward不新增outcome profile。
+* `test_business_listings_rollout.py`：验证剩余13个市场的分阶段首轮计划、ZIP有效参考地点半径、Atlanta证据门、10个普通市场批量执行门、纽约洛杉矶第一页探测、目标ZIP效率审计与过滤计数计划、共享日志中的合法续页、已完整类别组排除及有界offset续页。
+* `test_major_metro_filtered_pagination.py`：验证纽约洛杉矶ZIP过滤总数生成29页token计划、续页token链完整性、断点状态和验证模式零凭据零请求。
+* `test_major_metro_filtered_parse.py`：验证四条ZIP过滤token链完整后才能离线解析，逐条结果符合目标ZIP，并只按Google稳定身份在市场内去重而不合并物理地点。
+* `test_business_listings_stage_parse.py`：验证普通市场批量解析只选择standard rollout的10个市场，并拦截分页不完整或日志页数与审计不一致的输入。
+* `test_business_listings_stage_comparison.py`：验证批量资格与召回率审计要求10个市场完整对应，并按legacy参考地点数量计算整体召回率而不是简单平均市场比例。
+* `test_rollout_maps_supplement_plan.py`：验证召回缺口分档不自动匹配、真正缺ZIP审计、所有阶段市场统一核心关键词计划、旧地点核验与主发现任务隔离，以及主任务按100项分批。
+* `test_rollout_maps_standard_execution.py`：验证统一Maps Standard执行入口只接受冻结的15市场30项核心发现任务，并拒绝遗漏市场或legacy定向核验混入付费主manifest。
+* `test_maps_supplement.py`：验证Maps核心结果排除付费广告、在市场内按稳定ID去重、统计两个关键词边际覆盖，并分别保留主类别分组、多标签类别证据和旧优先级结果。
+* `test_maps_supplement_audit.py`：验证Maps候选按实际ZIP审核、Business Listings显式纳入状态、市场内Google稳定ID精确重合及零自动地点合并。
+* `test_maps_only_review.py`：验证真正Maps独有profile、未覆盖市场、类别冲突队列和跨来源身份候选pair相互分开，并保持零自动类别决定与零自动地点合并。
 * `test_candidate_audit.py`：验证搜索候选审计能汇总关键词产出、候选重叠和覆盖情况。
 * `test_candidate_eligibility.py`：验证候选资格规则保留全部记录、分配互斥状态并拒绝重复规则类别。
 * `test_candidate_enrichment.py`：验证候选地理补全、美国ZIP解析、加拿大记录排除和资料覆盖要求。
@@ -27,7 +45,7 @@ python -m pytest -m "not real_data" -q
 * `test_coordinate_cluster_audit.py`：验证完全同坐标和50米内候选仅在市场内生成，排除无效坐标且不执行自动合并。
 * `test_dataforseo_business_info.py`：验证Business Info批量提交保留逐任务状态，并执行100项上限和CID一致性检查。
 * `test_dataforseo_reviews.py`：验证评论任务支持place_id或CID、保留请求参数和状态，并执行标识符与批量上限约束。
-* `test_dataforseo_search.py`：验证认证与地点搜索都经过共享客户端，并在任务提交时保留可追踪标签。
+* `test_dataforseo_search.py`：验证认证、Business Listings过滤目录GET与地点搜索都经过共享客户端，并在任务提交时保留可追踪标签。
 * `test_distance_ring_variants.py`：验证圆环比较模型加入年份或市场年份固定效应、保留预期变量和样本，并拒绝重复clinic-year。
 * `test_download_business_info_results.py`：验证Business Info下载计划支持续传、核对任务与CID并原子写入JSON。
 * `test_download_location_results.py`：验证地点结果下载会过滤失败任务、支持续传、核对清单字段并原子写入JSON。
@@ -42,6 +60,13 @@ python -m pytest -m "not real_data" -q
 * `test_legacy_two_mile.py`：验证已冻结的2-mile legacy复现保留跨市场邻居、自身entry shock和density减一逻辑。
 * `test_legacy_reviews.py`：验证旧评论的各类连接路径和诊所名称ZIP键唯一性约束。
 * `test_location_resolution_audit.py`：验证地点审计识别非牙科资料、冲突证据和跨组近邻异常。
+* `test_major_metro_source_audit.py`：验证LA和NYC使用同一融合历史参考分别计算Business Listings与Maps Standard召回率，并单独计算两种新来源的精确profile重合。
+* `test_all_market_source_audit.py`：验证15市场四批Business Listings来源不重叠、统一融合历史分母加权汇总、Maps精确profile重合和pilot人工当前有效性分母隔离。
+* `test_source_union_audit.py`：验证Business Listings与Maps在同一历史地点键上的共同发现、Maps增量、联合召回、剩余缺口及市场门槛分档，防止直接相加两种来源召回率。
+* `test_unmatched_reference_audit.py`：验证两种来源均未发现地点能连接历史身份与最近候选证据、按距离和信息完整性分档，并保持当前状态、付费补抓和地点合并均为人工决定。
+* `test_identity_rule_validation.py`：验证放宽身份规则只生成精确名称、门牌号、地址相似度和距离支持的人工候选，并拒绝重复历史键且不自动确认身份。
+* `test_identity_rule_adjudication.py`：验证身份人工决定必须完整覆盖候选、保持历史标题身份不变，并正确区分确认匹配、分母排除和规则样本内精度。
+* `test_adjudicated_source_union.py`：验证已审核的身份匹配和分母排除只作用于指定reference key，并正确重算15市场联合召回率且不触发API或地点合并。
 * `test_manual_candidate_review.py`：验证人工候选决策保留记录、覆盖全部待决候选并阻止身份漂移。
 * `test_panel.py`：验证年度面板构建、历史评论累计、进入年份缺失处理和混合日期格式保留。
 * `test_parse_business_info_results.py`：验证已下载Business Info文件的任务标签、身份和解析结果。
@@ -58,6 +83,9 @@ python -m pytest -m "not real_data" -q
 * `test_review_collection.py`：验证每个canonical地点只提交一次评论任务，并计算自适应深度、上限、批次和成本。
 * `test_review_result_audit.py`：验证评论原始结果的商家身份、抓取深度、缺失ID和跨文件重复评论。
 * `test_review_result_parsing.py`：验证评论解析计划完整性、零评论地点保留、重复review_id拒绝和结果汇总。
+* `test_scrape_safety.py`：验证抓取任务数量由实际task tag推导，且付费确认文本使用尚未提交的任务数动态生成。
+* `test_scrape_run_context.py`：验证run name不能逃逸目录、raw与interim路径统一生成，并确认已登记的有效抓取脚本全部使用共享run context。
+* `test_scrape_plan.py`：验证原15市场规划完整、旧1590项对照可复算、新关键词不组合以及所有新阶段保持不可付费执行。
 * `test_scrape_checks.py`：验证认证检查经过共享客户端且不泄露凭据，并验证任务状态选择和已就绪结果摘要。
 * `test_settings.py`：验证Google评论抓取配置能够从项目设置中正确加载。
 * `test_spatial.py`：验证进入冲击仅在市场内部计算，并正确添加空间分析资格。
@@ -67,8 +95,8 @@ python -m pytest -m "not real_data" -q
 * `test_strict_spatial_suite.py`：验证strict 009a剩余空间方法共用邻居池、自身排除、2024截止年份和三种固定效应注册表。
 * `test_strict_two_mile_variants.py`：验证严格009a自身entry shock修正保留冻结样本，并在同样本上正确加入共同年份和严格ZIP市场年份固定效应。
 * `test_two_mile_variants.py`：验证2-mile新规格排除自身entry shock、保持样本结构，并正确加入年份或市场年份固定效应。
-* `test_submit_business_info_backfill.py`：验证Business Info提交清单、批量大小和成功任务续跑状态。
-* `test_submit_review_collection.py`：验证评论提交清单、批量大小、成功任务重试和标识符一致性。
+* `test_submit_business_info_backfill.py`：验证Business Info提交清单接受不同任务规模，并检查批量大小和成功任务续跑状态。
+* `test_submit_review_collection.py`：验证评论提交清单接受不同任务规模，并检查批量大小、成功任务重试和标识符一致性。
 * `test_validation.py`：验证评分对账会保留来源评分不一致证据。
 
 ## 3. 真实数据测试文件说明

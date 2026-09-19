@@ -12,37 +12,47 @@ from medical_ratings.location_resolution_audit import (
     audit_cross_group_locations,
     audit_profile_anomalies,
 )
-
-
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Audit unresolved profile and physical-location anomalies."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--review",
         type=Path,
-        default=DEFAULT_DIRECTORY / "physical_location_group_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--profile-output",
         type=Path,
-        default=DEFAULT_DIRECTORY / "profile_anomaly_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--location-output",
         type=Path,
-        default=DEFAULT_DIRECTORY / "cross_group_location_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--summary",
         type=Path,
-        default=DEFAULT_DIRECTORY / "location_resolution_audit_summary.json",
+        default=None,
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "review": ("interim", "physical_location_group_review.csv"),
+            "profile_output": ("interim", "profile_anomaly_review.csv"),
+            "location_output": ("interim", "cross_group_location_review.csv"),
+            "summary": ("interim", "location_resolution_audit_summary.json"),
+        },
+    )
 
 
 def write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:

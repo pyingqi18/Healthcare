@@ -8,6 +8,10 @@
 
 3. scrape
    scripts/scrape保存Malone与Syracuse重新抓取、审核、替换和纠正数据构建流程。
+   00必须显式指定target regions。01、11、21的付费确认以及11至24的数量检查按实际manifest和task log计算，不再固定为212、769或109。
+   00、01及03至24统一要求run name，并由共享run context生成raw与interim路径。15和19的人工决定文件必须显式指定。
+   00a读取config/scrape_plans.yaml，为原15市场输出搜索阶段、任务数和费用区间。它不读取API账号、不生成付费提交manifest，也不调用API。
+   00b使用官方牙科类别子集和corrected_v1诊所表生成Malone与Syracuse Business Listings试验计划，并审计既有109个参考地点是否落入预定半径。它同样不调用API。
 
 4. audit
    scripts/audit保存旧数据只读诊断。它们不修改legacy输入。
@@ -148,7 +152,7 @@
    ```
 
    可以用--from-stage和--to-stage选择连续阶段。每次执行在outputs/pipeline_runs下保存run_manifest.json，记录配置、命令、阶段状态及文件SHA-256。
-   full_rebuild当前明确阻塞，因为抓取脚本仍包含Malone/Syracuse批次路径、固定任务数和替换总数。正式分析协议已冻结在config/final_analysis.yaml，但统一抓取和最终exposure尚未实现，因此该profile仍不能执行。
+   full_rebuild当前明确阻塞。固定付费任务数和旧批次默认路径已经移除，但全市场搜索范围、run-specific人工决定、替换逻辑和最终exposure尚未完整接入，因此该profile仍不能执行。
    未来付费阶段必须同时使用--run和--confirm-paid STAGE_ID；pipeline不会在计划模式或普通运行中自动提交付费任务。
 
 7. 修改规则

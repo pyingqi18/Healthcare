@@ -11,37 +11,47 @@ import pandas as pd
 from medical_ratings.physical_location_groups import (
     build_physical_location_review,
 )
-
-
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Group included Google profiles by physical dental location."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--candidates",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_candidates_final_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--pairs",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_duplicate_candidate_pairs.csv",
+        default=None,
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_DIRECTORY / "physical_location_group_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--summary",
         type=Path,
-        default=DEFAULT_DIRECTORY / "physical_location_group_summary.json",
+        default=None,
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "candidates": ("interim", "clinic_candidates_final_review.csv"),
+            "pairs": ("interim", "clinic_duplicate_candidate_pairs.csv"),
+            "output": ("interim", "physical_location_group_review.csv"),
+            "summary": ("interim", "physical_location_group_summary.json"),
+        },
+    )
 
 
 def write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:

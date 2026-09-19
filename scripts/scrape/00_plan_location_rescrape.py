@@ -10,12 +10,17 @@ from pathlib import Path
 import yaml
 
 from medical_ratings.rescrape import build_location_rescrape_manifest
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Plan corrected-location searches without submitting API tasks."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--regions",
         type=Path,
@@ -29,18 +34,23 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--target-regions",
         nargs="+",
-        default=["Malone_NY_S", "Syracuse_NY_M"],
+        required=True,
+        help="One or more region keys from config/regions.yaml.",
     )
     parser.add_argument(
         "--output-directory",
         type=Path,
-        required=True,
+        default=None,
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {"output_directory": ("interim", ".")},
+    )
 
 
 def read_yaml(path: Path) -> dict[str, object]:

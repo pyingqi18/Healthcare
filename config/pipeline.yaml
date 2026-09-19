@@ -25,10 +25,9 @@ profiles:
   full_rebuild:
     blocked: true
     blocked_reason: >-
-      Full-market acquisition is not yet reusable. Existing scrape scripts retain
-      Malone/Syracuse run paths, batch-specific expected counts, and replacement
-      totals. The final analysis design is frozen in config/final_analysis.yaml,
-      but it cannot run until uniform acquisition and final exposure builders exist.
+      Paid-task counts and raw/interim run paths are configuration-driven. Full rebuild
+      remains blocked until the full-market search scope, run-specific manual decisions,
+      replacement logic, and final exposure builders are connected to this profile.
     stages: []
 
 stages:

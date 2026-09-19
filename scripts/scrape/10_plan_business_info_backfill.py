@@ -13,37 +13,46 @@ from medical_ratings.business_info_backfill import (
     build_business_info_manifest,
     summarize_business_info_manifest,
 )
-
-
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Plan paid Business Info backfill without submitting tasks."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--reviewed-candidates",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_candidate_eligibility_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_DIRECTORY / "business_info_backfill_manifest.csv",
+        default=None,
     )
     parser.add_argument(
         "--summary",
         type=Path,
-        default=DEFAULT_DIRECTORY / "business_info_backfill_manifest_summary.json",
+        default=None,
     )
     parser.add_argument("--location-code", type=int, default=2840)
     parser.add_argument("--language-code", default="en")
     parser.add_argument("--priority", type=int, default=1)
     parser.add_argument("--estimated-unit-cost-usd", type=float, default=0.0015)
     parser.add_argument("--overwrite", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "reviewed_candidates": ("interim", "clinic_candidate_eligibility_review.csv"),
+            "output": ("interim", "business_info_backfill_manifest.csv"),
+            "summary": ("interim", "business_info_backfill_manifest_summary.json"),
+        },
+    )
 
 
 def main() -> int:

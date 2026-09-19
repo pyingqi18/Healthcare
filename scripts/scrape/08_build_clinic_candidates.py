@@ -10,20 +10,21 @@ import pandas as pd
 import yaml
 
 from medical_ratings.clinic_candidates import build_clinic_candidates
-
-
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Consolidate search observations into CID candidates."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--observations",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_search_observations.csv",
+        default=None,
     )
     parser.add_argument(
         "--regions",
@@ -33,14 +34,22 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_candidates.csv",
+        default=None,
     )
     parser.add_argument(
         "--summary",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_candidates_summary.json",
+        default=None,
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "observations": ("interim", "clinic_search_observations.csv"),
+            "output": ("interim", "clinic_candidates.csv"),
+            "summary": ("interim", "clinic_candidates_summary.json"),
+        },
+    )
 
 
 def write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:

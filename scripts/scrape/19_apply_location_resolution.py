@@ -11,57 +11,71 @@ import pandas as pd
 from medical_ratings.final_location_resolution import (
     apply_location_resolution_decisions,
 )
-
-
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Freeze reviewed Google profiles into physical locations."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--profiles",
         type=Path,
-        default=DEFAULT_DIRECTORY / "physical_location_group_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--anomalies",
         type=Path,
-        default=DEFAULT_DIRECTORY / "profile_anomaly_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--location-pairs",
         type=Path,
-        default=DEFAULT_DIRECTORY / "cross_group_location_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--profile-decisions",
         type=Path,
-        default=Path("config/profile_resolution_decisions_20260910.csv"),
+        required=True,
+        help="Run-specific reviewed profile decision file.",
     )
     parser.add_argument(
         "--location-decisions",
         type=Path,
-        default=Path("config/location_group_decisions_20260910.csv"),
+        required=True,
+        help="Run-specific reviewed location-group decision file.",
     )
     parser.add_argument(
         "--crosswalk-output",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_profile_location_crosswalk.csv",
+        default=None,
     )
     parser.add_argument(
         "--location-output",
         type=Path,
-        default=DEFAULT_DIRECTORY / "physical_dental_locations_final.csv",
+        default=None,
     )
     parser.add_argument(
         "--summary",
         type=Path,
-        default=DEFAULT_DIRECTORY / "final_location_resolution_summary.json",
+        default=None,
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "profiles": ("interim", "physical_location_group_review.csv"),
+            "anomalies": ("interim", "profile_anomaly_review.csv"),
+            "location_pairs": ("interim", "cross_group_location_review.csv"),
+            "crosswalk_output": ("interim", "clinic_profile_location_crosswalk.csv"),
+            "location_output": ("interim", "physical_dental_locations_final.csv"),
+            "summary": ("interim", "final_location_resolution_summary.json"),
+        },
+    )
 
 
 def write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:

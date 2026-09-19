@@ -10,14 +10,9 @@ import pandas as pd
 import yaml
 
 from medical_ratings.candidate_audit import audit_search_candidates
-
-
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_OBSERVATIONS = (
-    Path("data/interim") / DEFAULT_RUN_NAME / "clinic_search_observations.csv"
-)
-DEFAULT_OUTPUT = (
-    Path("data/interim") / DEFAULT_RUN_NAME / "clinic_search_candidate_audit.json"
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
 )
 
 
@@ -25,10 +20,11 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Audit candidate overlap, geography, and keyword efficiency."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--observations",
         type=Path,
-        default=DEFAULT_OBSERVATIONS,
+        default=None,
     )
     parser.add_argument(
         "--regions",
@@ -38,9 +34,16 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_OUTPUT,
+        default=None,
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "observations": ("interim", "clinic_search_observations.csv"),
+            "output": ("interim", "clinic_search_candidate_audit.json"),
+        },
+    )
 
 
 def main() -> int:

@@ -13,15 +13,12 @@ from medical_ratings.parsing import (
     parse_local_finder_payload,
     parse_maps_payload,
 )
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_RESULTS_DIRECTORY = (
-    Path("data/raw") / DEFAULT_RUN_NAME / "clinic_search_results"
-)
-DEFAULT_OUTPUT = (
-    Path("data/interim") / DEFAULT_RUN_NAME / "clinic_search_observations.csv"
-)
 REQUIRED_LOG_COLUMNS = {
     "task_id",
     "task_tag",
@@ -41,17 +38,25 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Parse downloaded Maps and Local Finder result JSON."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--results-directory",
         type=Path,
-        default=DEFAULT_RESULTS_DIRECTORY,
+        default=None,
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_OUTPUT,
+        default=None,
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "results_directory": ("raw", "clinic_search_results"),
+            "output": ("interim", "clinic_search_observations.csv"),
+        },
+    )
 
 
 def _payload_tag(payload: Mapping[str, Any]) -> str | None:

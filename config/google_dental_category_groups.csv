@@ -1,0 +1,14 @@
+category,legacy_category_group,group_priority
+Dentist,keywords_General_Dentist,1
+Dental clinic,keywords_General_Dentist,1
+Emergency dental service,keywords_General_Dentist,1
+Cosmetic dentist,keywords_General_Dentist,1
+Orthodontist,keywords_Special_Dentist,2
+Pediatric dentist,keywords_Special_Dentist,2
+Endodontist,keywords_Special_Dentist,2
+Periodontist,keywords_Special_Dentist,2
+Dental implants provider,keywords_Special_Dentist,2
+Dental implants periodontist,keywords_Special_Dentist,2
+Prosthodontist,keywords_Special_Dentist,2
+Oral surgeon,keywords_Surgery_Dentist,3
+Oral and maxillofacial surgeon,keywords_Surgery_Dentist,3

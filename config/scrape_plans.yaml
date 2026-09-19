@@ -1,0 +1,166 @@
+version: 1
+
+pricing:
+  verified_on: 2026-09-18
+  currency: USD
+  sources:
+    google_maps_standard: https://dataforseo.com/pricing/serp/google-maps-serp-api
+    google_local_finder_standard: https://dataforseo.com/pricing/serp/google-local-finder-serp-api
+    business_listings_live: https://dataforseo.com/pricing/business-data/business-listings-api
+  google_maps_standard_per_100_results: 0.0006
+  google_local_finder_standard_per_20_results: 0.0006
+  business_listings_live_per_request: 0.012
+  business_listings_live_per_item: 0.00036
+  business_listings_maximum_items_per_request: 1000
+
+profiles:
+  existing_15_markets_planning_v1:
+    planning_only: true
+    execution_enabled: false
+    market_source: config/regions.yaml
+    markets:
+      - Malone_NY_S
+      - SaranacLake_NY_S
+      - Syracuse_NY_M
+      - Buffalo_NY_L
+      - NYC_NY_L
+      - Eureka_CA_S
+      - FortBragg_CA_S
+      - Modesto_CA_M
+      - SanFrancisco_CA_L
+      - LA_CA_L
+      - Vidalia_GA_S
+      - Toccoa_GA_S
+      - Macon_GA_M
+      - Augusta_GA_L
+      - Atlanta_GA_L
+    legacy_reference:
+      enabled_for_comparison_only: true
+      keyword_combination_count_per_market: 53
+      interfaces:
+        - google_maps_standard
+        - google_local_finder_standard
+      depth: 100
+    phases:
+      - phase_id: business_listings_two_market_validation
+        status: blocked_before_paid_execution
+        discovery_method: business_listings_live
+        markets:
+          - Malone_NY_S
+          - Syracuse_NY_M
+        request_count_per_market: 2
+        maximum_items_per_request: 1000
+        condition: >-
+          Resolve official dental category identifiers and a coverage radius or
+          multi-point grid for each pilot market before creating API requests.
+      - phase_id: business_listings_all_market_rollout
+        status: conditional_not_approved
+        discovery_method: business_listings_live
+        markets: all
+        request_count_per_market: 2
+        maximum_items_per_request: 1000
+        condition: >-
+          Run only if the two-market validation reaches acceptable CID recall
+          against the corrected Malone and Syracuse reference set.
+      - phase_id: maps_core_keyword_supplement
+        status: conditional_not_approved
+        discovery_method: google_maps_standard
+        markets: all
+        depth: 100
+        keywords:
+          - dentist
+          - dental clinic
+        condition: >-
+          Run only when Business Listings validation identifies a documented
+          recall gap. Each keyword remains a separate query.
+      - phase_id: maps_specialist_keyword_supplement
+        status: conditional_not_approved
+        discovery_method: google_maps_standard
+        markets: all
+        depth: 100
+        keywords:
+          - orthodontist
+          - pediatric dentist
+          - periodontist
+          - prosthodontist
+          - oral surgeon
+        condition: >-
+          Run only if specialist recall remains incomplete after the core tier.
+
+business_listings_pilot:
+  planning_only: true
+  execution_enabled: false
+  official_category_catalog_required: true
+  category_catalog_endpoint: >-
+    https://api.dataforseo.com/v3/business_data/business_listings/categories
+  maximum_categories_per_request: 10
+  requested_categories:
+    - dentist
+    - dental_clinic
+    - orthodontist
+    - emergency_dental_service
+    - oral_surgeon
+    - pediatric_dentist
+    - endodontist
+    - cosmetic_dentist
+    - oral_maxillofacial_surgeon
+    - periodontist
+    - dental_implants_provider
+    - dental_implants_periodontist
+    - prosthodontist
+  reference_key_prefix: "physical_location_final:"
+  markets:
+    Malone_NY_S:
+      radius_km: 5
+    Syracuse_NY_M:
+      radius_km: 15
+  recall_gate:
+    approve_primary_overall_minimum: 0.95
+    approve_primary_each_market_minimum: 0.90
+    supplement_overall_minimum: 0.90
+    reject_each_market_below: 0.80
+
+business_listings_rollout:
+  planning_only: true
+  execution_enabled: false
+  maximum_categories_per_request: 10
+  validated_pilot_markets:
+    - Malone_NY_S
+    - Syracuse_NY_M
+  large_market_validation_market: Atlanta_GA_L
+  major_metro_review_markets:
+    - NYC_NY_L
+    - LA_CA_L
+  major_metro_target_zip_regex:
+    NYC_NY_L: '^(10[0-4][0-9]{2}|11[0-6][0-9]{2})(-[0-9]{4})?$'
+    LA_CA_L: '^(90[0-9]{3}|91[0-6][0-9]{2})(-[0-9]{4})?$'
+  requested_categories:
+    - dentist
+    - dental_clinic
+    - orthodontist
+    - emergency_dental_service
+    - oral_surgeon
+    - pediatric_dentist
+    - endodontist
+    - cosmetic_dentist
+    - oral_maxillofacial_surgeon
+    - periodontist
+    - dental_implants_provider
+    - dental_implants_periodontist
+    - prosthodontist
+  market_radii_km:
+    Malone_NY_S: 5
+    SaranacLake_NY_S: 5
+    Syracuse_NY_M: 15
+    Buffalo_NY_L: 25
+    NYC_NY_L: 45
+    Eureka_CA_S: 10
+    FortBragg_CA_S: 7
+    Modesto_CA_M: 15
+    SanFrancisco_CA_L: 15
+    LA_CA_L: 75
+    Vidalia_GA_S: 10
+    Toccoa_GA_S: 10
+    Macon_GA_M: 20
+    Augusta_GA_L: 25
+    Atlanta_GA_L: 35

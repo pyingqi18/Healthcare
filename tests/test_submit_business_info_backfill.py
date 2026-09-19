@@ -22,7 +22,7 @@ def load_script():
     return module
 
 
-def make_manifest(size: int = 769) -> pd.DataFrame:
+def make_manifest(size: int = 7) -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
@@ -42,13 +42,19 @@ def make_manifest(size: int = 769) -> pd.DataFrame:
 
 def test_validate_manifest_and_batch_sizes() -> None:
     module = load_script()
-    manifest = make_manifest()
+    manifest = make_manifest(205)
 
     module.validate_manifest(manifest)
     grouped = module.batches(manifest.to_dict(orient="records"))
 
-    assert len(grouped) == 8
-    assert [len(group) for group in grouped] == [100] * 7 + [69]
+    assert len(grouped) == 3
+    assert [len(group) for group in grouped] == [100, 100, 5]
+
+
+def test_validate_manifest_accepts_nonlegacy_task_count() -> None:
+    module = load_script()
+
+    module.validate_manifest(make_manifest(7))
 
 
 def test_load_submitted_tags_keeps_only_successes(tmp_path: Path) -> None:
@@ -62,3 +68,18 @@ def test_load_submitted_tags_keeps_only_successes(tmp_path: Path) -> None:
     ).to_csv(path, index=False)
 
     assert module.load_submitted_tags(path) == {"tag-1"}
+
+
+def test_load_submitted_tags_rejects_another_run(tmp_path: Path) -> None:
+    module = load_script()
+    path = tmp_path / "task_log.csv"
+    pd.DataFrame(
+        [{"task_tag": "foreign", "submission_status": "submitted"}]
+    ).to_csv(path, index=False)
+
+    try:
+        module.load_submitted_tags(path, {"expected"})
+    except ValueError as error:
+        assert "outside this manifest" in str(error)
+    else:
+        raise AssertionError("Expected a foreign task log to fail")

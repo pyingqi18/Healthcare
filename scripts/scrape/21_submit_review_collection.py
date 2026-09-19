@@ -12,10 +12,13 @@ import yaml
 
 from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
+from medical_ratings.scrape_safety import paid_confirmation_text
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
-EXPECTED_TASK_COUNT = 109
-CONFIRMATION_TEXT = "SUBMIT_109_PAID_REVIEW_TASKS"
 API_MAXIMUM_BATCH_SIZE = 100
 REQUIRED_COLUMNS = {
     "task_tag",
@@ -32,19 +35,15 @@ REQUIRED_COLUMNS = {
     "planned_depth",
     "estimated_maximum_cost_usd",
 }
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
-DEFAULT_RAW_DIRECTORY = Path("data/raw") / DEFAULT_RUN_NAME
-
-
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate or submit paid Google Reviews tasks."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--manifest",
         type=Path,
-        default=DEFAULT_DIRECTORY / "review_collection_manifest.csv",
+        default=None,
     )
     parser.add_argument(
         "--settings", type=Path, default=Path("config/settings.yaml")
@@ -52,24 +51,29 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--task-log",
         type=Path,
-        default=DEFAULT_RAW_DIRECTORY / "review_task_log.csv",
+        default=None,
     )
     parser.add_argument(
         "--confirm-submit",
         default=None,
-        help=f"Paid submission requires the exact text {CONFIRMATION_TEXT}.",
+        help="Exact confirmation text printed by validation mode.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "manifest": ("interim", "review_collection_manifest.csv"),
+            "task_log": ("raw", "review_task_log.csv"),
+        },
+    )
 
 
 def validate_manifest(manifest: pd.DataFrame) -> None:
     missing = REQUIRED_COLUMNS - set(manifest.columns)
     if missing:
         raise KeyError(f"Manifest is missing columns: {sorted(missing)}")
-    if len(manifest) != EXPECTED_TASK_COUNT:
-        raise ValueError(
-            f"Expected {EXPECTED_TASK_COUNT} manifest rows, found {len(manifest)}"
-        )
+    if manifest.empty:
+        raise ValueError("Manifest contains no tasks")
     for column in (
         "task_tag",
         "final_physical_location_id",
@@ -188,6 +192,7 @@ def main() -> int:
     remaining_batches = batches(
         remaining.to_dict(orient="records"), batch_size
     )
+    confirmation_text = paid_confirmation_text("REVIEW", len(remaining))
     summary = {
         "manifest_rows": len(manifest),
         "previously_submitted_tasks": len(submitted_tags),
@@ -196,11 +201,12 @@ def main() -> int:
         "estimated_remaining_maximum_cost_usd": round(
             float(remaining["estimated_maximum_cost_usd"].sum()), 4
         ),
-        "paid_submission_enabled": args.confirm_submit == CONFIRMATION_TEXT,
+        "paid_submission_enabled": args.confirm_submit == confirmation_text,
+        "required_confirmation_text": confirmation_text,
     }
     print(json.dumps(summary, indent=2))
 
-    if args.confirm_submit != CONFIRMATION_TEXT:
+    if args.confirm_submit != confirmation_text:
         print("Validation only. No API requests were submitted.")
         return 0
     if remaining.empty:

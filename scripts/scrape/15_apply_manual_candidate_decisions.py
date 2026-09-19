@@ -12,37 +12,47 @@ from medical_ratings.manual_candidate_review import (
     UNRESOLVED_STATUSES,
     apply_manual_candidate_decisions,
 )
-
-
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Apply exact manual decisions to unresolved candidates."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--candidates",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_candidates_enriched_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--decisions",
         type=Path,
-        default=Path("config/candidate_manual_decisions_20260908.csv"),
+        required=True,
+        help="Run-specific reviewed candidate decision file.",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_candidates_final_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--summary",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_candidates_final_summary.json",
+        default=None,
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "candidates": ("interim", "clinic_candidates_enriched_review.csv"),
+            "output": ("interim", "clinic_candidates_final_review.csv"),
+            "summary": ("interim", "clinic_candidates_final_summary.json"),
+        },
+    )
 
 
 def write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:

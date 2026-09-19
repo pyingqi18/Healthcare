@@ -24,7 +24,7 @@ def load_script():
     return module
 
 
-def make_task_log(size: int = 109) -> pd.DataFrame:
+def make_task_log(size: int = 5) -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
@@ -45,7 +45,7 @@ def make_task_log(size: int = 109) -> pd.DataFrame:
     )
 
 
-def test_build_download_plan_requires_all_tasks_and_resumes(
+def test_build_download_plan_derives_task_count_and_resumes(
     tmp_path: Path,
 ) -> None:
     module = load_script()
@@ -55,7 +55,7 @@ def test_build_download_plan_requires_all_tasks_and_resumes(
 
     plan = module.build_download_plan(make_task_log(), raw)
 
-    assert len(plan) == 109
+    assert len(plan) == 5
     assert int(plan["already_downloaded"].sum()) == 1
 
 

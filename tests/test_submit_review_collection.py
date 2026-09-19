@@ -22,7 +22,7 @@ def load_script():
     return module
 
 
-def make_manifest(size: int = 109) -> pd.DataFrame:
+def make_manifest(size: int = 9) -> pd.DataFrame:
     return pd.DataFrame(
         [
             {
@@ -52,7 +52,13 @@ def test_validate_manifest_and_configured_batch_sizes() -> None:
     module.validate_manifest(manifest)
     grouped = module.batches(manifest.to_dict(orient="records"), 50)
 
-    assert [len(group) for group in grouped] == [50, 50, 9]
+    assert [len(group) for group in grouped] == [9]
+
+
+def test_validate_manifest_accepts_nonlegacy_task_count() -> None:
+    module = load_script()
+
+    module.validate_manifest(make_manifest(3))
 
 
 def test_load_submitted_tags_keeps_successes_and_allows_retry(

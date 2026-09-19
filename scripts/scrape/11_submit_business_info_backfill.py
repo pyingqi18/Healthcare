@@ -12,10 +12,13 @@ import yaml
 
 from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
+from medical_ratings.scrape_safety import paid_confirmation_text
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
-EXPECTED_TASK_COUNT = 769
-CONFIRMATION_TEXT = "SUBMIT_769_PAID_BUSINESS_INFO_TASKS"
 MAXIMUM_BATCH_SIZE = 100
 REQUIRED_MANIFEST_COLUMNS = {
     "task_tag",
@@ -27,19 +30,15 @@ REQUIRED_MANIFEST_COLUMNS = {
     "priority",
     "estimated_unit_cost_usd",
 }
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
-DEFAULT_RAW_DIRECTORY = Path("data/raw") / DEFAULT_RUN_NAME
-
-
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate or submit paid Business Info backfill tasks."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--manifest",
         type=Path,
-        default=DEFAULT_DIRECTORY / "business_info_backfill_manifest.csv",
+        default=None,
     )
     parser.add_argument(
         "--settings",
@@ -49,24 +48,29 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--task-log",
         type=Path,
-        default=DEFAULT_RAW_DIRECTORY / "business_info_task_log.csv",
+        default=None,
     )
     parser.add_argument(
         "--confirm-submit",
         default=None,
-        help=f"Paid submission requires the exact text {CONFIRMATION_TEXT}.",
+        help="Exact confirmation text printed by validation mode.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "manifest": ("interim", "business_info_backfill_manifest.csv"),
+            "task_log": ("raw", "business_info_task_log.csv"),
+        },
+    )
 
 
 def validate_manifest(manifest: pd.DataFrame) -> None:
     missing = REQUIRED_MANIFEST_COLUMNS - set(manifest.columns)
     if missing:
         raise KeyError(f"Manifest is missing columns: {sorted(missing)}")
-    if len(manifest) != EXPECTED_TASK_COUNT:
-        raise ValueError(
-            f"Expected {EXPECTED_TASK_COUNT} manifest rows, found {len(manifest)}"
-        )
+    if manifest.empty:
+        raise ValueError("Manifest contains no tasks")
     if manifest["task_tag"].isna().any() or not manifest["task_tag"].is_unique:
         raise ValueError("Manifest task_tag values must be present and unique")
     cid = manifest["cid"].astype("string").str.strip()
@@ -78,7 +82,10 @@ def validate_manifest(manifest: pd.DataFrame) -> None:
         raise ValueError("This submission requires standard priority 1")
 
 
-def load_submitted_tags(path: Path) -> set[str]:
+def load_submitted_tags(
+    path: Path,
+    manifest_tags: set[str] | None = None,
+) -> set[str]:
     if not path.exists():
         return set()
     log = pd.read_csv(path, low_memory=False)
@@ -86,9 +93,17 @@ def load_submitted_tags(path: Path) -> set[str]:
     missing = required - set(log.columns)
     if missing:
         raise KeyError(f"Task log is missing columns: {sorted(missing)}")
-    return set(
+    submitted = set(
         log.loc[log["submission_status"].eq("submitted"), "task_tag"].astype(str)
     )
+    if manifest_tags is not None:
+        unexpected = submitted - manifest_tags
+        if unexpected:
+            raise ValueError(
+                "Task log contains submitted tags outside this manifest: "
+                f"{sorted(unexpected)[:3]}"
+            )
+    return submitted
 
 
 def append_task_log(path: Path, records: list[dict[str, object]]) -> None:
@@ -127,7 +142,8 @@ def main() -> int:
     args = parse_arguments()
     manifest = pd.read_csv(args.manifest, dtype={"cid": "string"})
     validate_manifest(manifest)
-    submitted_tags = load_submitted_tags(args.task_log)
+    manifest_tags = set(manifest["task_tag"].astype(str))
+    submitted_tags = load_submitted_tags(args.task_log, manifest_tags)
     remaining = manifest.loc[
         ~manifest["task_tag"].astype(str).isin(submitted_tags)
     ].copy()
@@ -135,17 +151,21 @@ def main() -> int:
         float(remaining["estimated_unit_cost_usd"].sum()), 4
     )
     remaining_batches = batches(remaining.to_dict(orient="records"))
+    confirmation_text = paid_confirmation_text(
+        "BUSINESS_INFO", len(remaining)
+    )
     validation_summary = {
         "manifest_rows": len(manifest),
         "previously_submitted_tasks": len(submitted_tags),
         "remaining_tasks": len(remaining),
         "remaining_post_batches": len(remaining_batches),
         "estimated_remaining_cost_usd": estimated_remaining_cost,
-        "paid_submission_enabled": args.confirm_submit == CONFIRMATION_TEXT,
+        "paid_submission_enabled": args.confirm_submit == confirmation_text,
+        "required_confirmation_text": confirmation_text,
     }
     print(json.dumps(validation_summary, indent=2))
 
-    if args.confirm_submit != CONFIRMATION_TEXT:
+    if args.confirm_submit != confirmation_text:
         print("Validation only. No API requests were submitted.")
         return 0
     if remaining.empty:

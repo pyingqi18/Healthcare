@@ -168,10 +168,18 @@ def parse_maps_payload(
                 "cid": item.get("cid"),
                 "title": item.get("title"),
                 "category": item.get("category"),
+                "additional_categories_json": _json_text(
+                    item.get("additional_categories")
+                ),
+                "category_ids_json": _json_text(item.get("category_ids")),
                 "address": item.get("address"),
+                "address_street": address_info.get("address"),
+                "city": address_info.get("city"),
                 "latitude": item.get("latitude"),
                 "longitude": item.get("longitude"),
                 "zip": address_info.get("zip"),
+                "address_region": address_info.get("region"),
+                "country_code": address_info.get("country_code"),
                 "phone": item.get("phone"),
                 "domain": item.get("domain"),
                 "url": item.get("url"),

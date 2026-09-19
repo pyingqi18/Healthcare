@@ -24,9 +24,12 @@ dataforseo:
   review_depth_maximum: 2000
   review_depth_multiple: 10
   endpoints:
+    business_listings_live: https://api.dataforseo.com/v3/business_data/business_listings/search/live
+    business_listings_available_filters: https://api.dataforseo.com/v3/business_data/business_listings/available_filters
     local_finder_post: https://api.dataforseo.com/v3/serp/google/local_finder/task_post
     local_finder_get: https://api.dataforseo.com/v3/serp/google/local_finder/task_get/advanced/{task_id}
     maps_post: https://api.dataforseo.com/v3/serp/google/maps/task_post
+    maps_tasks_ready: https://api.dataforseo.com/v3/serp/google/maps/tasks_ready
     maps_get: https://api.dataforseo.com/v3/serp/google/maps/task_get/advanced/{task_id}
     business_info_post: https://api.dataforseo.com/v3/business_data/google/my_business_info/task_post
     business_info_get: https://api.dataforseo.com/v3/business_data/google/my_business_info/task_get/{task_id}

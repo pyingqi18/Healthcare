@@ -15,7 +15,34 @@
    distance_ring_variants.py保持legacy圆环exposure和样本不变，为联合圆环与单独0.5-mile模型比较共同年份固定效应和市场年份固定效应。
 
 4. 重新抓取
-   config.py统一从环境读取DataForSEO凭据。dataforseo.py统一处理认证检查、POST任务提交和GET结果读取；parsing.py处理单个结果，result_audit.py及candidate相关模块处理搜索结果和资格审核。
+   config.py统一从环境读取DataForSEO凭据。dataforseo.py统一处理认证检查、POST任务提交、GET结果读取和Business Listings可用过滤字段查询；过滤字段查询是非任务GET，不会提交付费抓取。parsing.py处理单个结果，result_audit.py及candidate相关模块处理搜索结果和资格审核。
+   scrape_safety.py根据实际manifest和task log生成付费确认文本及任务数量，不再把212、769或109写进通用执行逻辑。
+   scrape_run_context.py校验run name，并统一生成data/raw/<run_name>和data/interim/<run_name>路径。显式传入的单个文件路径仍可覆盖默认路径。
+   scrape_plan.py验证只规划抓取profile，比较旧53组合方案与分阶段新方案的任务量和费用区间，并强制execution_enabled为false。
+   business_listings_pilot.py核对官方类别、将13个牙科类别拆成每次最多10个的请求组、审计试验半径覆盖，并按预先设定的召回率门槛分类试验结果。
+   business_listings_live.py校验冻结的四请求manifest，解析Live响应并按CID或place_id合并重复类别观测。dataforseo.py中的Live方法保存请求参数哈希、费用、时间和返回数量，并支持最多8项经过验证的服务端过滤条件；过滤条件进入参数哈希和provenance。
+   business_listings_comparison.py保留全部Business Listings候选，区分美国ZIP、加拿大邮编、无法识别邮编和真正缺失邮编，再按实际ZIP和主类别分配审核状态。旧参考地点只有在地址相同、电话相同且距离不超过100米，或距离不超过10米且名称相似度至少为0.8时才计为找到；单独依赖10米坐标的候选只进入人工审核，不再自动提高召回率。
+   business_listings_manual_audit.py应用有证据来源的人工决定，并分别保留当前竞争地点资格、评分profile资格和历史面板资格，避免当前关闭状态删除历史记录。
+   business_listings_location_audit.py将已裁决的竞争候选接入现有重复pair和地点分组逻辑，只生成待人工审核的连通block及风险摘要，不确认物理地点，也不执行合并。
+   business_listings_location_triage.py按地址数量、坐标跨度、共享电话和domain、组织profile数量及强连接密度排列多profile block的人工审核优先级；分档不代表批准合并。
+   business_listings_location_resolution.py将竞争地点身份与评分profile身份分开处理。singleton直接保留为一个地点，routine block按冻结规则形成一个竞争地点，complex和focused block必须读取决定文件；所有rating outcome继续使用原clinic_key，不合并评分历史。
+   business_listings_competition_universe.py将已定案的Business Listings地点与有效但未被接口发现的旧地点合并，并检查carry-forward是否完整、是否与新发现地址或10米坐标重复，以及每个新地点是否只有一个canonical profile。
+   business_listings_live.py同时记录每次响应的total_count、实际返回数和下一页token，并支持offset或offset_token续页。dataforseo.py要求Live响应顶层与task状态均为20000、tasks_count为1、tasks_error为0、result结构完整且count与items一致后才记录completed。分页审计会将同一市场、同一类别组的全部offset页合并检查，防止已经补齐后仍被早期页面的page_has_more误判为不完整。
+   rollout解析只接受分页审计已经完整的市场。它核对审计页数、完成日志、原始JSON和item_count后，按CID或place_id跨页、跨类别去重。
+   business_listings_comparison.py保留两市场pilot默认行为，同时允许冻结的单个rollout市场复用相同ZIP、类别和分层证据匹配规则。旧数据先按competition_unit_id折叠为物理竞争地点，再按实际ZIP区分目标区内、目标区外和缺ZIP地点；reference recall只使用与新候选相同的目标ZIP口径，距离计算使用市场内向量化实现。
+   business_listings_rollout.py将两市场试验后的13个市场分成大型市场验证、条件rollout和纽约洛杉矶专项审核，先用实际ZIP规则清除legacy参考中的跨市场污染再检查半径。Atlanta修正口径召回率达到冻结的90%门槛后，允许一次选择10个普通市场的20项第一页请求。普通市场完成后，纽约和洛杉矶只允许各提交两个已冻结类别组的第一页探测；必须确认两地corrected legacy参考地点均在计划半径内，且不会自动提交任何续页。四项第一页保存后，同一模块按冻结ZIP规则审计目标区内结果比例、跨类别组重复和盲目续页费用，超过10000条的类别组必须先审核过滤或地理拆分方案。
+   同一模块还会读取四项ZIP过滤计数结果，建立四条limit=1000的offset-token分页链，并审计页号连续性、token衔接、重复token、总数漂移和断点剩余页数。超过10000条的类别组不再使用numeric offset硬翻页。
+   同一模块根据全部已保存页的类别组完整性生成有界numeric offset续页计划。已经由连续offset页完整覆盖的类别组不会因为早期页面仍标记page_has_more而被重复规划；结果总数必须不超过10000，计划外页面不会自动提交。
+   dataforseo.py支持在一次POST中提交最多100个Standard SERP任务，并用免费的Tasks Ready入口取得明确完成的task ID。统一Maps补抓的30项任务因此只发送一次提交请求，下载器也不会对尚未完成的任务提前调用结果GET。
+   maps_supplement.py解析15市场30项Maps核心结果，排除付费广告后在每个请求市场内按CID或place_id去重，分别统计dentist独有、dental clinic独有和共同发现的profile。类别输出同时保留主类别分组、General/Special/Surgery多标签证据和旧any-evidence优先级结果，避免把附加服务直接当成诊所唯一类别。
+   maps_supplement_audit.py复用现有实际ZIP与主类别资格规则，并把目标ZIP内Maps profile同全部Business Listings profile按市场和Google稳定ID精确比较，同时区分接口曾发现与最终纳入两种状态。该模块只生成来源重合与Maps独有审核证据，不执行profile或物理地点自动合并。
+   maps_only_review.py将Business Listings已覆盖市场中的真正Maps独有profile按主类别与标题冲突分配审核队列，并用地址、电话、domain、坐标和名称相似度生成跨来源身份候选pair。纽约和洛杉矶在完成Business Listings主抓取前单独标记为未覆盖，不被计入Maps独有增量。
+   major_metro_filtered_parse.py要求LA和NYC四条ZIP过滤token链完整后才读取原始JSON，核对每页数量、API tag和目标ZIP，并在各市场内按Google稳定身份去重；它不执行物理地点合并。
+   major_metro_source_audit.py在LA和NYC主抓取完成后执行三项分开的比较：Business Listings对融合历史参考地点的召回率、Maps Standard对同一融合历史参考地点的召回率，以及两种新来源之间的精确Google profile重合。历史参考明确记为legacy与external已经融合；现有crosswalk不能再拆分二者来源。
+   all_market_source_audit.py将pilot、Atlanta验证、10市场standard rollout和LA/NYC ZIP-filtered四批Business Listings结果按冻结市场归属合并，再对15个市场统一计算Business Listings历史召回率、Maps Standard历史召回率和两种新来源的精确profile重合。统一分母只使用corrected_v1中目标ZIP的融合历史竞争单位，Malone和Syracuse单独完成人工当前有效性审核的分母不会混入全市场汇总。
+   source_union_audit.py在相同历史competition-unit键上连接Business Listings与Maps匹配结果，分别统计共同发现、Business Listings独有发现、Maps新增补回及两种来源都未找到的地点。联合召回率按历史地点去重后计算，禁止直接相加两种来源各自的召回率。
+   unmatched_reference_audit.py读取两种来源均未发现的历史地点，补回历史名称、地址、坐标及两种来源各自的最近候选证据，并分为近距离身份审核、附近候选审核、当前状态定向审核和历史身份信息不足四类。它只建立审核队列，不自动判定停业、漏抓或身份合并。
+   identity_rule_validation.py针对现有10米名称匹配规则遗漏的记录，生成精确名称100米、较高名称相似度且门牌号一致100米、以及中等名称相似度加高地址相似度100米三种候选规则证据。候选只进入人工验证，不会自动改变冻结matcher或合并地点。
 
 5. 实体地点与评论
    duplicate_candidate_audit.py、physical_location_groups.py、location_resolution_audit.py和final_location_resolution.py处理资料到实体地点的归并。
@@ -29,3 +56,10 @@
 
 8. 修改规则
    模块函数不应依赖notebook全局状态。新增逻辑需要同步增加tests中的小样本测试。
+### `identity_rule_adjudication.py`
+
+读取31a生成的候选身份表和冻结的逐条人工决定，检查reference key覆盖、标题身份是否漂移以及决定值是否合法。它分别输出确认的历史地点匹配和应从当前参考分母排除的旧记录，并报告候选规则的样本内正预测值。该模块不会把放宽规则推广到其他记录，也不会合并rating profile。
+
+### `adjudicated_source_union.py`
+
+将32a确认的reference key精确应用到29a保存的15市场地点级来源联合表。确认匹配只更新具备人工证据的Business Listings或Maps来源标记，超出范围的旧记录只从当前召回率分母排除。模块保留原始状态、记录市场级变化并重新计算联合召回率，不提交API任务或合并评分profile。

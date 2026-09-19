@@ -132,6 +132,185 @@ class DataForSEOClient:
             "authenticated": api_status == 20000,
         }
 
+    def get_business_listings_available_filters(
+        self,
+        url: str,
+    ) -> dict[str, Any]:
+        """Read the non-task Business Listings filter catalog."""
+
+        clean_url = str(url).strip()
+        if not clean_url.startswith("https://api.dataforseo.com/"):
+            raise ValueError("Business Listings filter URL must use the DataForSEO API")
+        return self._request("GET", clean_url, validate_tasks=False)
+
+    def search_business_listings_live(
+        self,
+        *,
+        url: str,
+        categories: Sequence[str],
+        location_coordinate: str,
+        limit: int,
+        tag: str,
+        offset: int = 0,
+        offset_token: str | None = None,
+        filters: Sequence[Any] | None = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Run one live Business Listings request and retain its provenance."""
+
+        clean_categories = [str(value).strip() for value in categories]
+        if not 1 <= len(clean_categories) <= 10:
+            raise ValueError("Business Listings requires 1 to 10 categories")
+        if any(not value for value in clean_categories):
+            raise ValueError("Business Listings categories cannot be blank")
+        if len(clean_categories) != len(set(clean_categories)):
+            raise ValueError("Business Listings categories cannot contain duplicates")
+        clean_tag = str(tag).strip()
+        if not clean_tag or len(clean_tag) > 255:
+            raise ValueError("tag must contain 1 to 255 characters")
+        clean_coordinate = str(location_coordinate).strip()
+        coordinate_parts = clean_coordinate.split(",")
+        if len(coordinate_parts) != 3:
+            raise ValueError(
+                "location_coordinate must use latitude,longitude,radius"
+            )
+        try:
+            latitude, longitude, radius = map(float, coordinate_parts)
+        except ValueError as error:
+            raise ValueError("location_coordinate contains nonnumeric values") from error
+        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+            raise ValueError("location_coordinate latitude or longitude is invalid")
+        if not 1 <= radius <= 100000:
+            raise ValueError("Business Listings radius must be 1 to 100000 km")
+        parsed_limit = int(limit)
+        if not 1 <= parsed_limit <= 1000:
+            raise ValueError("Business Listings limit must be 1 to 1000")
+        parsed_offset = int(offset)
+        if parsed_offset < 0:
+            raise ValueError("Business Listings offset cannot be negative")
+        clean_offset_token = None
+        if offset_token is not None:
+            clean_offset_token = str(offset_token).strip()
+            if not clean_offset_token:
+                raise ValueError("Business Listings offset_token cannot be blank")
+            if parsed_offset != 0:
+                raise ValueError("Use offset or offset_token, not both")
+
+        request_row = {
+            "categories": clean_categories,
+            "location_coordinate": clean_coordinate,
+            "limit": parsed_limit,
+            "tag": clean_tag,
+        }
+        clean_filters = None
+        if filters is not None:
+            clean_filters = list(filters)
+            if not clean_filters or len(clean_filters) > 15:
+                raise ValueError("Business Listings filters are empty or too long")
+            condition_count = sum(
+                isinstance(value, Sequence) and not isinstance(value, str)
+                for value in clean_filters
+            )
+            if condition_count < 1 or condition_count > 8:
+                raise ValueError("Business Listings requires 1 to 8 filter conditions")
+            request_row["filters"] = clean_filters
+        if clean_offset_token is not None:
+            request_row["offset_token"] = clean_offset_token
+        elif parsed_offset:
+            request_row["offset"] = parsed_offset
+        payload = self._request("POST", url, json=[request_row])
+        if int(payload.get("status_code", -1)) != 20000:
+            raise DataForSEOError(
+                "Business Listings live response was not completed with status 20000"
+            )
+        if int(payload.get("tasks_count", -1)) != 1:
+            raise DataForSEOError(
+                "Business Listings live response must report tasks_count=1"
+            )
+        if int(payload.get("tasks_error", -1)) != 0:
+            raise DataForSEOError(
+                "Business Listings live response must report tasks_error=0"
+            )
+        tasks = payload.get("tasks") or []
+        if len(tasks) != 1:
+            raise DataForSEOError(
+                "Business Listings live response must contain exactly one task"
+            )
+        task = tasks[0]
+        if int(task.get("status_code", -1)) != 20000:
+            raise DataForSEOError(
+                "Business Listings live task was not completed with status 20000"
+            )
+        response_data = task.get("data") or {}
+        if str(response_data.get("tag", "")) != clean_tag:
+            raise DataForSEOError("Business Listings response tag does not match request")
+
+        results = task.get("result") or []
+        if len(results) != 1 or not isinstance(results[0], Mapping):
+            raise DataForSEOError(
+                "Completed Business Listings live task must contain one result object"
+            )
+        result = results[0]
+        items = result.get("items") or []
+        if not isinstance(items, list):
+            raise DataForSEOError("Business Listings result items must be a list")
+        item_count = len(items)
+        if result.get("count") is None or int(result["count"]) != item_count:
+            raise DataForSEOError(
+                "Business Listings result count does not match the items array"
+            )
+        if result.get("total_count") is None:
+            raise DataForSEOError("Business Listings result is missing total_count")
+        total_count = int(result["total_count"])
+        if total_count < 0 or total_count < item_count:
+            raise DataForSEOError("Business Listings total_count is inconsistent")
+        if clean_offset_token is None and total_count < parsed_offset + item_count:
+            raise DataForSEOError(
+                "Business Listings total_count is smaller than the saved offset coverage"
+            )
+        next_offset_token = None
+        token = result.get("offset_token")
+        if isinstance(token, Mapping):
+            token = token.get("value") or token.get("token")
+        if token is not None and str(token).strip():
+            next_offset_token = str(token).strip()
+        page_has_more = (
+            next_offset_token is not None
+            if clean_offset_token is not None
+            else (
+                total_count is not None
+                and total_count > parsed_offset + item_count
+            )
+        )
+        canonical = json.dumps(request_row, sort_keys=True, separators=(",", ":"))
+        provenance = {
+            "task_tag": clean_tag,
+            "task_id": None if task.get("id") is None else str(task.get("id")),
+            "api_type": "business_listings_live",
+            "endpoint": url,
+            "location_coordinate": clean_coordinate,
+            "categories": "|".join(clean_categories),
+            "filters": (
+                None
+                if clean_filters is None
+                else json.dumps(clean_filters, separators=(",", ":"))
+            ),
+            "category_count": len(clean_categories),
+            "limit": parsed_limit,
+            "offset": parsed_offset,
+            "offset_token_used": clean_offset_token,
+            "params_hash": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
+            "api_status_code": task.get("status_code"),
+            "api_status_message": task.get("status_message"),
+            "api_cost_usd": task.get("cost"),
+            "item_count": item_count,
+            "total_count": total_count,
+            "next_offset_token": next_offset_token,
+            "page_has_more": page_has_more,
+            "request_status": "completed",
+        }
+        return payload, provenance
+
     def submit_business_info_batch(
         self,
         *,
@@ -430,6 +609,94 @@ class DataForSEOClient:
             ).isoformat(),
             tag=tag,
         )
+
+    def submit_search_batch(
+        self,
+        *,
+        url: str,
+        tasks: Sequence[Mapping[str, Any]],
+        api_type: str = "maps",
+    ) -> list[dict[str, Any]]:
+        """Submit up to 100 Standard SERP tasks in one HTTP request."""
+
+        if not 1 <= len(tasks) <= 100:
+            raise ValueError("Search batch must contain 1 to 100 tasks")
+        payload_rows: list[dict[str, Any]] = []
+        source_rows: list[dict[str, Any]] = []
+        tags: set[str] = set()
+        for source in tasks:
+            tag = str(source.get("task_tag", "")).strip()
+            query = str(source.get("query", "")).strip()
+            if not tag or not query:
+                raise ValueError("Search tasks require nonblank task_tag and query")
+            if tag in tags:
+                raise ValueError("Search batch contains duplicate task tags")
+            tags.add(tag)
+            request_row = {
+                "keyword": query,
+                "location_code": int(source["location_code"]),
+                "language_code": str(source.get("language_code", "en")),
+                "depth": int(source.get("depth", 100)),
+                "priority": int(source.get("priority", 1)),
+                "tag": tag,
+            }
+            if not 1 <= request_row["depth"] <= 700:
+                raise ValueError("Search depth must be between 1 and 700")
+            payload_rows.append(request_row)
+            source_rows.append(dict(source))
+        payload = self._request(
+            "POST", url, json=payload_rows, validate_tasks=False
+        )
+        response_tasks = payload.get("tasks") or []
+        if len(response_tasks) != len(payload_rows):
+            raise DataForSEOError(
+                "Search response task count does not match submitted task count"
+            )
+        submitted_at = datetime.now(timezone.utc).isoformat()
+        records: list[dict[str, Any]] = []
+        for source, request_row, response_task in zip(
+            source_rows, payload_rows, response_tasks, strict=True
+        ):
+            response_tag = (response_task.get("data") or {}).get("tag")
+            if response_tag is not None and str(response_tag) != request_row["tag"]:
+                raise DataForSEOError("Search response tag does not match request order")
+            canonical = json.dumps(request_row, sort_keys=True, separators=(",", ":"))
+            status_code = response_task.get("status_code")
+            task_id = response_task.get("id")
+            submitted = (
+                status_code is not None
+                and int(status_code) < 40000
+                and bool(task_id)
+            )
+            records.append(
+                {
+                    **source,
+                    "task_id": None if task_id is None else str(task_id),
+                    "api_type": api_type,
+                    "endpoint": url,
+                    "params_hash": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+                    "submitted_at_utc": submitted_at,
+                    "api_status_code": status_code,
+                    "api_status_message": response_task.get("status_message"),
+                    "api_cost_usd": response_task.get("cost"),
+                    "submission_status": "submitted" if submitted else "failed",
+                }
+            )
+        return records
+
+    def get_ready_task_ids(self, url: str) -> set[str]:
+        """Return task IDs explicitly reported complete by Tasks Ready."""
+
+        payload = self._request("GET", url)
+        tasks = payload.get("tasks") or []
+        if len(tasks) != 1:
+            raise DataForSEOError("Tasks Ready response must contain one task block")
+        result = tasks[0].get("result") or []
+        return {
+            str(row["id"])
+            for row in result
+            if isinstance(row, Mapping) and row.get("id")
+        }
 
     def submit_review_task(
         self,

@@ -1,5 +1,7 @@
 """Unit tests for DataForSEO response parsers."""
 
+import json
+
 from medical_ratings.parsing import (
     parse_local_finder_payload,
     parse_maps_payload,
@@ -27,8 +29,16 @@ def test_parse_maps_payload_preserves_business_fields_and_provenance() -> None:
                                 "cid": "cid-123",
                                 "title": "Clinic A",
                                 "category": "Dentist",
+                                "additional_categories": ["Dental clinic"],
+                                "category_ids": ["dentist", "dental_clinic"],
                                 "address": "1 Main St, Syracuse, NY 13202",
-                                "address_info": {"zip": "13202"},
+                                "address_info": {
+                                    "address": "1 Main St",
+                                    "city": "Syracuse",
+                                    "zip": "13202",
+                                    "region": "New York",
+                                    "country_code": "US",
+                                },
                                 "latitude": 43.0,
                                 "longitude": -76.1,
                                 "phone": "+1 555 0100",
@@ -60,6 +70,9 @@ def test_parse_maps_payload_preserves_business_fields_and_provenance() -> None:
     assert record["rank_group"] == 3
     assert record["rank_absolute"] == 4
     assert record["category"] == "Dentist"
+    assert json.loads(record["additional_categories_json"]) == ["Dental clinic"]
+    assert json.loads(record["category_ids_json"]) == ["dentist", "dental_clinic"]
+    assert record["country_code"] == "US"
     assert record["phone"] == "+1 555 0100"
     assert record["domain"] == "example.com"
     assert record["url"] == "https://example.com"

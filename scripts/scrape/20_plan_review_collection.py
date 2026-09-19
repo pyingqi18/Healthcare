@@ -14,38 +14,47 @@ from medical_ratings.review_collection import (
     build_review_collection_manifest,
     summarize_review_collection_manifest,
 )
-
-
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Plan paid Google Reviews tasks without submitting them."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--locations",
         type=Path,
-        default=DEFAULT_DIRECTORY / "physical_dental_locations_final.csv",
+        default=None,
     )
     parser.add_argument("--settings", type=Path, default=Path("config/settings.yaml"))
     parser.add_argument("--regions", type=Path, default=Path("config/regions.yaml"))
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_DIRECTORY / "review_collection_manifest.csv",
+        default=None,
     )
     parser.add_argument(
         "--summary",
         type=Path,
-        default=DEFAULT_DIRECTORY / "review_collection_manifest_summary.json",
+        default=None,
     )
     parser.add_argument(
         "--standard-cost-per-ten-reviews-usd", type=float, default=0.00075
     )
     parser.add_argument("--overwrite", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "locations": ("interim", "physical_dental_locations_final.csv"),
+            "output": ("interim", "review_collection_manifest.csv"),
+            "summary": ("interim", "review_collection_manifest_summary.json"),
+        },
+    )
 
 
 def main() -> int:

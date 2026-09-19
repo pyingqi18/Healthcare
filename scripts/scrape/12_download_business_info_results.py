@@ -14,11 +14,13 @@ import yaml
 
 from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
+from medical_ratings.scrape_safety import submitted_task_rows
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
-EXPECTED_TASK_COUNT = 769
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_RAW_DIRECTORY = Path("data/raw") / DEFAULT_RUN_NAME
 REQUIRED_TASK_COLUMNS = {
     "task_tag",
     "task_id",
@@ -32,10 +34,11 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate or download exact-CID Business Info results."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--task-log",
         type=Path,
-        default=DEFAULT_RAW_DIRECTORY / "business_info_task_log.csv",
+        default=None,
     )
     parser.add_argument(
         "--settings",
@@ -45,14 +48,21 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--output-directory",
         type=Path,
-        default=DEFAULT_RAW_DIRECTORY / "business_info_results",
+        default=None,
     )
     parser.add_argument(
         "--download-results",
         action="store_true",
         help="Fetch results. Without this flag, only validate the plan.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "task_log": ("raw", "business_info_task_log.csv"),
+            "output_directory": ("raw", "business_info_results"),
+        },
+    )
 
 
 def build_download_plan(
@@ -64,13 +74,10 @@ def build_download_plan(
     missing = REQUIRED_TASK_COLUMNS - set(task_log.columns)
     if missing:
         raise KeyError(f"Task log is missing columns: {sorted(missing)}")
-    submitted = task_log.loc[
-        task_log["submission_status"].eq("submitted")
-    ].drop_duplicates("task_tag", keep="last").copy()
-    if len(submitted) != EXPECTED_TASK_COUNT:
-        raise ValueError(
-            f"Expected {EXPECTED_TASK_COUNT} submitted tasks, found {len(submitted)}"
-        )
+    submitted = submitted_task_rows(
+        task_log,
+        required_columns=REQUIRED_TASK_COLUMNS,
+    )
     if submitted["task_id"].isna().any():
         raise ValueError("Submitted task log contains missing task IDs")
     if not submitted["task_tag"].is_unique:

@@ -12,9 +12,13 @@ import yaml
 
 from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
+from medical_ratings.scrape_safety import paid_confirmation_text
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
-CONFIRMATION_TEXT = "SUBMIT_212_PAID_TASKS"
 REQUIRED_MANIFEST_COLUMNS = {
     "task_tag",
     "region_key",
@@ -30,22 +34,27 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate or submit a corrected-location search manifest."
     )
-    parser.add_argument("--manifest", type=Path, required=True)
+    add_run_context_arguments(parser)
+    parser.add_argument("--manifest", type=Path, default=None)
     parser.add_argument(
         "--settings",
         type=Path,
         default=Path("config/settings.yaml"),
     )
-    parser.add_argument("--task-log", type=Path, required=True)
+    parser.add_argument("--task-log", type=Path, default=None)
     parser.add_argument(
         "--confirm-submit",
         default=None,
-        help=(
-            "Paid submission is enabled only when this equals "
-            f"{CONFIRMATION_TEXT}."
-        ),
+        help="Exact confirmation text printed by validation mode.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "manifest": ("interim", "clinic_search_manifest.csv"),
+            "task_log": ("raw", "clinic_search_task_log.csv"),
+        },
+    )
 
 
 def read_settings(path: Path) -> dict[str, object]:
@@ -82,7 +91,10 @@ def validate_manifest(manifest: pd.DataFrame) -> None:
         )
 
 
-def load_submitted_tags(path: Path) -> set[str]:
+def load_submitted_tags(
+    path: Path,
+    manifest_tags: set[str] | None = None,
+) -> set[str]:
     if not path.exists():
         return set()
 
@@ -92,12 +104,20 @@ def load_submitted_tags(path: Path) -> set[str]:
     if missing:
         raise KeyError(f"Task log is missing columns: {sorted(missing)}")
 
-    return set(
+    submitted = set(
         task_log.loc[
             task_log["submission_status"].eq("submitted"),
             "task_tag",
         ].astype(str)
     )
+    if manifest_tags is not None:
+        unexpected = submitted - manifest_tags
+        if unexpected:
+            raise ValueError(
+                "Task log contains submitted tags outside this manifest: "
+                f"{sorted(unexpected)[:3]}"
+            )
+    return submitted
 
 
 def append_task_log(path: Path, record: dict[str, object]) -> None:
@@ -128,10 +148,12 @@ def main() -> None:
     manifest = pd.read_csv(args.manifest, low_memory=False)
     validate_manifest(manifest)
 
-    submitted_tags = load_submitted_tags(args.task_log)
+    manifest_tags = set(manifest["task_tag"].astype(str))
+    submitted_tags = load_submitted_tags(args.task_log, manifest_tags)
     remaining = manifest[
         ~manifest["task_tag"].astype(str).isin(submitted_tags)
     ].copy()
+    confirmation_text = paid_confirmation_text("SEARCH", len(remaining))
 
     validation_summary = {
         "manifest_rows": len(manifest),
@@ -142,15 +164,19 @@ def main() -> None:
             int(value) for value in manifest["location_code"].unique()
         ),
         "paid_submission_enabled": (
-            args.confirm_submit == CONFIRMATION_TEXT
+            args.confirm_submit == confirmation_text
         ),
+        "required_confirmation_text": confirmation_text,
     }
     print(json.dumps(validation_summary, indent=2))
 
-    if args.confirm_submit != CONFIRMATION_TEXT:
+    if args.confirm_submit != confirmation_text:
         print(
             "Validation only. No API requests were submitted."
         )
+        return
+    if remaining.empty:
+        print("All manifest tasks were previously submitted.")
         return
 
     login, password = require_dataforseo_credentials()

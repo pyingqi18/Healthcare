@@ -15,25 +15,26 @@ from medical_ratings.candidate_eligibility import (
 from medical_ratings.candidate_enrichment import (
     enrich_candidates_with_business_info,
 )
-
-
-DEFAULT_RUN_NAME = "rescrape_malone_syracuse_20260907"
-DEFAULT_DIRECTORY = Path("data/interim") / DEFAULT_RUN_NAME
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Merge Business Info profiles and recompute candidate review."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--candidates",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_candidate_eligibility_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--profiles",
         type=Path,
-        default=DEFAULT_DIRECTORY / "business_info_profiles.csv",
+        default=None,
     )
     parser.add_argument("--regions", type=Path, default=Path("config/regions.yaml"))
     parser.add_argument(
@@ -44,14 +45,23 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_candidates_enriched_review.csv",
+        default=None,
     )
     parser.add_argument(
         "--summary",
         type=Path,
-        default=DEFAULT_DIRECTORY / "clinic_candidates_enriched_summary.json",
+        default=None,
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "candidates": ("interim", "clinic_candidate_eligibility_review.csv"),
+            "profiles": ("interim", "business_info_profiles.csv"),
+            "output": ("interim", "clinic_candidates_enriched_review.csv"),
+            "summary": ("interim", "clinic_candidates_enriched_summary.json"),
+        },
+    )
 
 
 def write_csv_atomic(frame: pd.DataFrame, path: Path) -> None:

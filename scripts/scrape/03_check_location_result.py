@@ -11,11 +11,9 @@ import yaml
 
 from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
-
-
-DEFAULT_TASK_LOG = Path(
-    "data/raw/rescrape_malone_syracuse_20260907/"
-    "clinic_search_task_log.csv"
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
 )
 
 
@@ -23,7 +21,8 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Check whether one submitted search task has results."
     )
-    parser.add_argument("--task-log", type=Path, default=DEFAULT_TASK_LOG)
+    add_run_context_arguments(parser)
+    parser.add_argument("--task-log", type=Path, default=None)
     parser.add_argument(
         "--settings",
         type=Path,
@@ -34,7 +33,11 @@ def parse_arguments() -> argparse.Namespace:
         default=None,
         help="Inspect this task tag. Defaults to the first submitted task.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {"task_log": ("raw", "clinic_search_task_log.csv")},
+    )
 
 
 def select_submitted_task(

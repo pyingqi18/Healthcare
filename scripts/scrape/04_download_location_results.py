@@ -14,11 +14,12 @@ import yaml
 
 from medical_ratings.config import require_dataforseo_credentials
 from medical_ratings.dataforseo import DataForSEOClient
-
-
-DEFAULT_RUN_DIRECTORY = Path(
-    "data/raw/rescrape_malone_syracuse_20260907"
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
 )
+
+
 REQUIRED_TASK_COLUMNS = {
     "task_tag",
     "task_id",
@@ -33,10 +34,11 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate or download submitted clinic-search results."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--task-log",
         type=Path,
-        default=DEFAULT_RUN_DIRECTORY / "clinic_search_task_log.csv",
+        default=None,
     )
     parser.add_argument(
         "--settings",
@@ -46,14 +48,21 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--output-directory",
         type=Path,
-        default=DEFAULT_RUN_DIRECTORY / "clinic_search_results",
+        default=None,
     )
     parser.add_argument(
         "--download-results",
         action="store_true",
         help="Fetch results. Without this flag, only validate the plan.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {
+            "task_log": ("raw", "clinic_search_task_log.csv"),
+            "output_directory": ("raw", "clinic_search_results"),
+        },
+    )
 
 
 def build_download_plan(

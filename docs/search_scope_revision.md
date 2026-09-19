@@ -82,11 +82,36 @@
 
 当前修复批次已经完成诊所和评论替换。搜索策略修改保留到全市场统一重抓前执行，不能在不同市场之间混用不同发现口径。
 
+## 15市场只规划profile
+
+`config/scrape_plans.yaml`中的`existing_15_markets_planning_v1`只覆盖现有15个研究市场，不增加新州或新地点，也不允许API执行。
+
+旧方案作为费用和任务量对照保留。每个市场为53组关键词组合乘两个接口，共106项；15个市场共1590项。按2026-09-18公开标准队列价格及depth 100估算，Maps每项读取100条，Local Finder每项读取100条即5页，合计约2.862美元。该数字不包括后续Business Info和评论抓取。
+
+新方案分四阶段：
+
+1. 先用Malone和Syracuse验证Business Listings。研究纳入13个官方类别，接口每次最多10个类别，因此每个市场拆成2次，两市场共4次。最低请求费用0.048美元；若4次都返回上限1000 items，费用上限为1.488美元。
+2. 只有两市场CID召回达到预先确定的标准后，才允许15市场rollout。当前该阶段未批准。
+3. 只有Business Listings存在记录明确的召回缺口时，才考虑`dentist`和`dental clinic`两个Maps单关键词补充。
+4. 专科仍缺失时，才考虑五个专科单关键词。新计划禁止自动生成关键词组合。
+
+官方类别名、试验半径和召回率门槛已经在离线计划中冻结。付费试验前仍需实现Business Listings客户端、结构化结果解析器和独立付费确认门，并用reference coverage输出确认109个既有地点全部落入试验圆。
+
+2026-09-18进一步核对官方类别目录后，13个研究纳入类别全部获得精确接口名称。Malone使用5 km试验圆，Syracuse使用15 km试验圆，目的仅是覆盖corrected reference。召回率规则预先设为：总体不低于95%且各市场不低于90%时可作为主发现方法；总体达到90%但未通过主门槛时增加Maps单关键词补充；总体低于90%或任一市场低于80%时拒绝或重新设计。旧参考集不是完整真值，新发现且符合ZIP与类别资格的地点另行审核。
+
 ## 官方接口依据
 
 DataForSEO Business Listings Search 支持按类别和坐标半径检索，可在单次请求中设置最多 10 个类别，并返回地址、联系方式、评分等结构化资料：
 
 https://docs.dataforseo.com/v3/business_data-business_listings-search-live/
+
+## 两市场付费试验结论
+
+四项Live请求实际费用为0.2406美元，返回534条类别观测和493个唯一profile。按实际ZIP判断，271个profile属于Malone或Syracuse目标市场，占54.97%。固定匹配规则找回109个corrected reference中的104个，总体召回率为95.41%，两个市场分别达到预设门槛，因此Business Listings获批作为主发现入口，暂不追加Maps关键词付费搜索。
+
+这个批准不等于直接接受全部profile。类别异常的6个目标ZIP profile另有带证据的决定文件。当前竞争地点、可用于评分结果的profile和历史面板保留资格分别判断。例如St. Marianne Cope确认提供牙科服务，可以保留为竞争地点候选，但混合医疗和牙科profile的评分不进入牙科outcome；已关闭的旧Aspen地点不进入当前接口召回率分母，但不会仅因当前关闭而删除历史面板记录。
+
+人工证据调整后，当前有效参考地点为105个，Business Listings发现其中104个，竞争地点召回率为99.05%。唯一仍有效但未被发现的地点是Hybridge Dental Implants。后续全市场重抓应以Business Listings为主，同时显式携带已经验证但未重新发现的旧地点，随后再进行profile到物理地点的审核。
 
 DataForSEO Business Info 的关键词参数会对加号进行解码，并支持通过 `cid:` 获取单一商家资料：
 

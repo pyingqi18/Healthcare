@@ -11,11 +11,12 @@ from typing import Any
 import pandas as pd
 
 from medical_ratings.result_audit import audit_location_results
-
-
-DEFAULT_RESULTS_DIRECTORY = Path(
-    "data/raw/rescrape_malone_syracuse_20260907/clinic_search_results"
+from medical_ratings.scrape_run_context import (
+    add_run_context_arguments,
+    resolve_run_context_arguments,
 )
+
+
 REQUIRED_LOG_COLUMNS = {
     "task_id",
     "task_tag",
@@ -29,10 +30,11 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Audit downloaded result structure without showing clinics."
     )
+    add_run_context_arguments(parser)
     parser.add_argument(
         "--results-directory",
         type=Path,
-        default=DEFAULT_RESULTS_DIRECTORY,
+        default=None,
     )
     parser.add_argument(
         "--output",
@@ -40,7 +42,11 @@ def parse_arguments() -> argparse.Namespace:
         default=None,
         help="Defaults to RESULTS_DIRECTORY/location_result_audit.json.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    return resolve_run_context_arguments(
+        args,
+        {"results_directory": ("raw", "clinic_search_results")},
+    )
 
 
 def load_downloaded_results(results_directory: Path) -> list[dict[str, Any]]:
