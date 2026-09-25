@@ -35,7 +35,7 @@
    同一模块根据全部已保存页的类别组完整性生成有界numeric offset续页计划。已经由连续offset页完整覆盖的类别组不会因为早期页面仍标记page_has_more而被重复规划；结果总数必须不超过10000，计划外页面不会自动提交。
    dataforseo.py支持在一次POST中提交最多100个Standard SERP任务，并用免费的Tasks Ready入口取得明确完成的task ID。统一Maps补抓的30项任务因此只发送一次提交请求，下载器也不会对尚未完成的任务提前调用结果GET。
    maps_supplement.py解析15市场30项Maps核心结果，排除付费广告后在每个请求市场内按CID或place_id去重，分别统计dentist独有、dental clinic独有和共同发现的profile。类别输出同时保留主类别分组、General/Special/Surgery多标签证据和旧any-evidence优先级结果，避免把附加服务直接当成诊所唯一类别。
-   maps_supplement_audit.py复用现有实际ZIP与主类别资格规则，并把目标ZIP内Maps profile同全部Business Listings profile按市场和Google稳定ID精确比较，同时区分接口曾发现与最终纳入两种状态。该模块只生成来源重合与Maps独有审核证据，不执行profile或物理地点自动合并。
+   maps_supplement_audit.py复用现有实际ZIP与主类别资格规则。源ZIP为空时，只从地址末尾明确的“州缩写+五位ZIP”恢复ZIP，并记录address_text_fallback；不会从任意五位数字猜ZIP，也不会覆盖非空源ZIP。随后把目标ZIP内Maps profile同全部Business Listings profile按市场和Google稳定ID精确比较，同时区分接口曾发现与最终纳入两种状态。该模块只生成来源重合与Maps独有审核证据，不执行profile或物理地点自动合并。
    maps_only_review.py将Business Listings已覆盖市场中的真正Maps独有profile按主类别与标题冲突分配审核队列，并用地址、电话、domain、坐标和名称相似度生成跨来源身份候选pair。纽约和洛杉矶在完成Business Listings主抓取前单独标记为未覆盖，不被计入Maps独有增量。
    major_metro_filtered_parse.py要求LA和NYC四条ZIP过滤token链完整后才读取原始JSON，核对每页数量、API tag和目标ZIP，并在各市场内按Google稳定身份去重；它不执行物理地点合并。
    major_metro_source_audit.py在LA和NYC主抓取完成后执行三项分开的比较：Business Listings对融合历史参考地点的召回率、Maps Standard对同一融合历史参考地点的召回率，以及两种新来源之间的精确Google profile重合。历史参考明确记为legacy与external已经融合；现有crosswalk不能再拆分二者来源。
@@ -63,3 +63,73 @@
 ### `adjudicated_source_union.py`
 
 将32a确认的reference key精确应用到29a保存的15市场地点级来源联合表。确认匹配只更新具备人工证据的Business Listings或Maps来源标记，超出范围的旧记录只从当前召回率分母排除。模块保留原始状态、记录市场级变化并重新计算联合召回率，不提交API任务或合并评分profile。
+
+### `maps_specialist_plan.py`
+
+根据33a冻结的15市场联合召回结果生成统一专业关键词补抓清单。每个市场都使用相同的orthodontist、pediatric dentist、periodontist、prosthodontist和oral surgeon五个关键词，防止根据已经观察到的市场召回率改变搜索强度。模块只计算75项Standard Maps任务、预计成本和审计字段，不读取凭据或提交API。
+
+该模块同时验证付费提交清单必须准确包含15个市场、每个市场相同的5个关键词和75个唯一task tag。`maps_supplement.py`的保存结果解析器现在接受明确传入的任务数、市场数和每市场任务数，因此原两关键词30项结果与新专业关键词75项结果共用同一套tag核验、Google profile去重和类别证据逻辑；默认参数仍保持原30项core解析不变。
+
+### `maps_specialist_source_audit.py`
+
+将专业关键词Maps结果接入已经人工修正的15市场来源联合表。模块先建立Business Listings与两关键词Maps的目标ZIP精确profile索引，再区分专业关键词重复profile与真正的精确profile新增。历史reference继续使用冻结的地址、电话、距离和名称匹配结果；只有原联合表尚未发现且被专业关键词发现的当前reference才计入增量。人工排除记录不重新进入分母，模块不执行物理地点合并，也不修改回归空间代码。
+
+### `specialist_followup_audit.py`
+
+把38a之后仍需人工判断的内容分开处理。历史身份队列保留每个未匹配reference的全部10米内专业关键词候选pair；profile队列只保留专业关键词精确新增中的人工类别记录和缺ZIP记录。市场缺口诊断只允许已经确认的历史reference改变召回率，并计算全部待确认身份都成立时的理论上限，因此不会用新增profile数量虚增历史召回率，也不会自动触发付费请求或地点合并。
+
+### `specialist_followup_adjudication.py`
+
+把39a的110个候选pair按reference压缩为21个历史身份决定，并与79个profile类别决定和5个地理决定合并为一份105行审核表。应用阶段检查决定覆盖、标题身份、候选key、证据和审核人信息，再分别更新当前reference召回分母、人工确认发现和profile资格。停业或超出范围的旧地点只退出当前发现基准，历史面板保留逻辑不在本模块修改。整个模块不自动确认身份、不合并rating profile，也不修改回归BallTree。
+
+### `post_adjudication_completion.py`
+
+读取40a应用后的reference级来源联合表、逐条人工决定和corrected_v1 competition-unit crosswalk。模块先把15个市场分为冻结主发现、定向历史状态审核和发现方式重设计三类，再输出全部剩余reference清单、5个低于90%市场的逐地点状态查询清单，以及15市场统一的5个剩余单关键词发现清单。逐地点查询不进入主发现样本，统一发现清单保持条件性未批准；旧53组组合不会恢复，模块不调用API、不合并profile，也不修改回归BallTree。
+
+### `reference_status_audit_execution.py`
+
+验证41a生成的定向历史地点状态审核清单，并为42a提交和43a下载提供统一边界检查。模块要求任务数量、五个市场、费用、reference身份和查询文字与冻结摘要一致，明确禁止状态查询进入主发现样本。断点续跑依据成功提交的task tag和已经保存的task ID结果文件，不会自动提交条件性的75项剩余关键词任务。
+
+### `reference_status_adjudication.py`
+
+解析43a保存的50项Maps状态审核结果，把每个历史reference与查询返回的名称、地址、电话、域名、坐标和provider状态字段并排整理。固定证据只用于候选排序，模块不自动判断同一地点、搬迁或停业。人工决定应用后只允许停业或超出范围记录退出当前reference分母；定向查询找到的profile另行记录，但不增加统一主发现分子。模块随后重算15市场召回率，不提交API、不合并地点，也不修改回归BallTree。
+
+### `discovery_benchmark_freeze.py`
+
+读取44a完成后的summary、15市场召回表、reference级来源联合表和41a条件性剩余关键词清单。模块要求人工决定为零未决、主发现分子没有被定向查询改变、15个市场全部达到90%门槛，并核对3525个当前reference与3398个发现地点在总表和分市场表中守恒。通过后冻结发现基准，把127个仍有效但未被新来源发现的地点单独列为validated legacy carry-forward，并把75项条件性任务标记为不执行。它不生成最终诊所实体、不合并rating profile，也不修改回归BallTree。
+
+### `cross_source_profile_resolution.py`
+
+把Business Listings、核心Maps和专业Maps按市场与稳定Google profile key精确去重，并保留每个profile出现过的来源、类别和决定证据。已冻结的早期人工类别决定按稳定profile key继承，标题身份不一致时停止运行；全部observed category一致命中冻结exclude规则的profile直接执行规则并保留原因，其余未审核类别或来源冲突进入统一人工决定表。决定应用后，模块把纳入的Google profile与127个validated legacy carry-forward地点anchor放入同一地点审核集合，使用地址、电话、domain和市场内500米BallTree生成候选pair，再调用现有地点block与分档逻辑。这个BallTree只缩小人工地点候选范围，不修改回归空间邻居或exposure。模块不自动合并地点；legacy anchor不作为新的rating outcome，原历史clinic key通过独立lineage继续保留。
+
+### `profile_eligibility_triage.py`
+
+读取46a剩余的空白profile决定表、统一inventory和冻结Google类别规则。模块逐条记录类别规则组合、未知类别、标题牙科与非牙科信号、建议决定和审核层级，并汇总为类别证据组与未知类别规则候选表。所有建议保持`automatic_final_decision_applied=false`，不会直接写入最终资格或修改provider taxonomy。
+
+### `profile_eligibility_review.py`
+
+把46b的逐profile triage和147个分析类别组整理为可执行的review block加row例外入口。类别、标题或建议相同不足以共享决定。只有同一类别组内重复出现同一非空domain时才形成共享审核块，其余profile强制保持单例。实际450条profile因此形成410个review block，包括27个共享domain块、覆盖67条profile，以及383个单例。模块从46a统一inventory带入网站、domain、电话、票数和坐标，并补充稳定Google profile链接。block决定只有在审核者声明看完块内全部成员、填写完整证据和审核信息后才可展开；row决定用于例外并优先覆盖block决定。模块再次核对46a冻结的decision ID、profile key、标题、地址、来源和类别字段，并要求450条profile全部得到最终决定后才输出46a兼容决定表。建议字段不会自动成为决定，模块不修改类别规则或回归空间代码。
+
+### `profile_eligibility_review_app.py`
+
+读取46c冻结的450条row和410个review block，先重新检查ID唯一性、block人数及多profile块的共享domain证据，再生成一个不依赖服务器的本地HTML审核页面。页面逐块显示网站、Google profile、电话、地址、类别、建议和全部成员，允许填写block决定及row例外，使用浏览器本地存储保存进度，并按原列顺序导出46c可直接读取的两份reviewed CSV。页面不自动接受建议、不请求API，也不改写输入CSV。
+
+### `profile_eligibility_external_evidence.py`
+
+读取46c已经预填冻结决定的row文件，只选择仍未解决的`external_evidence_required`记录，并输出共享domain块、官网单例、电话单例和仅Google profile单例四级审核队列。模块同时生成精确profile搜索、限定domain的站内搜索和domain汇总导航，但相同domain只用于减少重复查找，不会自动复用资格决定。模块不抓取网页、不调用API、不填写最终决定、不合并profile或地点，也不修改回归BallTree。
+
+### `profile_eligibility_audit_freeze.py`
+
+验证46e共享domain队列与逐profile决定是否完整覆盖，并按市场、profile key、标题和地址检查身份没有漂移。模块允许同一网站下不同地址得到不同决定，把49条新决定与163条旧冻结决定无重复地合并，并为原始审核表、派生证据表和决定表计算SHA-256。它不自动推断资格、不合并profile或地点，也不修改回归BallTree。
+
+### `profile_eligibility_original_freeze.py`
+
+专门验证未经人工决定污染的profile资格复核基线。模块要求初始46a队列为583条空白决定，修正队列为570条空白决定，最终人工复核队列为450条空白决定，并验证13条旧决定复用、120条冻结类别排除、410个最终review block和29,984条统一inventory之间的包含关系。第8版和第9版只作为进度快照，不能通过这个原始基线检查。
+
+### `profile_eligibility_singleton_audit.py`
+
+读取第9版450条profile审核表，只保留212条已决定记录之外的238条单例。模块按已保存官网链接的具体程度区分牙科服务页、名称匹配的地点或医生页、结构化官网页、其他子页、官网主页、电话加Google profile和仅Google profile，并单独输出最具体的官网页面优先批次。页面类型只改变人工审核顺序，不会自动生成纳入或排除决定；搜索不到官网也不能作为排除证据。模块不调用API、不合并profile或地点，也不修改回归BallTree。
+
+### `legacy_regression_report.py`
+
+读取corrected_v1诊所、strict 009a panel和04至15已保存的回归系数，统一生成市场、州、城市规模、类别、年度趋势、entry group及各固定效应规格的表和图。旧notebook中逐城市逐类别循环生成的重复图片被改成固定多市场图；低评分统一定义为诊所平均评分小于等于3.0。模块只整理和展示既有结果，不重新估计模型、不选择显著规格，也不修改BallTree或空间exposure。

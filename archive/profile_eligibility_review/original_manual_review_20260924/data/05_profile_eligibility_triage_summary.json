@@ -1,0 +1,21 @@
+{
+  "analysis_status": "profile_eligibility_triage_prepared_not_final",
+  "api_requests_submitted": 0,
+  "input_pending_profiles": 450,
+  "category_review_groups": 147,
+  "unknown_category_values": 104,
+  "profiles_by_review_tier": {
+    "external_evidence_required": 283,
+    "focused_title_evidence": 91,
+    "focused_category_evidence": 43,
+    "focused_category_conflict": 33
+  },
+  "profiles_by_suggested_decision": {
+    "no_safe_suggestion": 283,
+    "exclude_non_dentist_category": 87,
+    "include_dental_provider": 80
+  },
+  "automatic_final_decisions_applied": 0,
+  "regression_balltree_modified": false,
+  "next_required_action": "Review category conflicts and title-based suggestions, then obtain external evidence for rows without a safe suggestion."
+}

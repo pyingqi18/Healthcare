@@ -3,11 +3,41 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+import re
 from typing import Any
 
 import pandas as pd
 
 from medical_ratings.business_listings_comparison import prepare_pilot_candidates
+
+
+ADDRESS_ZIP_PATTERN = re.compile(
+    r",\s*[A-Z]{2}\s+(\d{5})(?:-\d{4})?"
+    r"(?:,\s*(?:USA|United States))?\s*$",
+    re.IGNORECASE,
+)
+
+
+def recover_missing_maps_zip(candidates: pd.DataFrame) -> pd.DataFrame:
+    """Recover a missing source ZIP only from an address-ending state/ZIP pair."""
+
+    required = {"zip", "address"}
+    missing = required - set(candidates.columns)
+    if missing:
+        raise KeyError(f"Maps candidates are missing columns: {sorted(missing)}")
+    frame = candidates.copy()
+    source_zip = frame["zip"].astype("string").str.strip()
+    source_missing = source_zip.isna() | source_zip.eq("")
+    extracted = frame["address"].astype("string").str.extract(
+        ADDRESS_ZIP_PATTERN, expand=False
+    )
+    recovered = source_missing & extracted.notna()
+    frame["zip_source_value"] = frame["zip"]
+    frame.loc[recovered, "zip"] = extracted.loc[recovered]
+    frame["zip_resolution_method"] = "source_zip_field"
+    frame.loc[recovered, "zip_resolution_method"] = "address_text_fallback"
+    frame.loc[source_missing & ~recovered, "zip_resolution_method"] = "unresolved"
+    return frame
 
 
 def audit_maps_candidates(
@@ -17,6 +47,7 @@ def audit_maps_candidates(
 ) -> pd.DataFrame:
     """Apply the established actual-ZIP and primary-category review rules."""
 
+    candidates = recover_missing_maps_zip(candidates)
     frames: list[pd.DataFrame] = []
     for market, group in candidates.groupby("requested_location", sort=True):
         frames.append(

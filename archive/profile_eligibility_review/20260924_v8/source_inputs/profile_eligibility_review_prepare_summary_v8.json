@@ -1,0 +1,26 @@
+{
+  "analysis_status": "profile_eligibility_review_files_prepared_not_final",
+  "api_requests_submitted": 0,
+  "profile_rows": 450,
+  "category_groups": 147,
+  "review_blocks": 410,
+  "shared_domain_review_blocks": 27,
+  "profiles_in_shared_domain_review_blocks": 67,
+  "singleton_review_blocks": 383,
+  "profiles_by_review_tier": {
+    "external_evidence_required": 283,
+    "focused_title_evidence": 91,
+    "focused_category_evidence": 43,
+    "focused_category_conflict": 33
+  },
+  "suggested_include_profiles": 80,
+  "suggested_exclude_profiles": 87,
+  "profiles_without_safe_suggestion": 283,
+  "profiles_with_existing_website": 357,
+  "profiles_with_phone": 440,
+  "profiles_with_website_or_phone": 445,
+  "profiles_without_website_or_phone": 5,
+  "automatic_final_decisions_applied": 0,
+  "verified_profile_decisions_prefilled": 163,
+  "next_required_action": "Review every member of any block given a block decision. Mark heterogeneous blocks individual_review and fill their row decisions. Suggestions are not decisions."
+}

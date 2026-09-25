@@ -34,7 +34,7 @@ python -m pytest -m "not real_data" -q
 * `test_rollout_maps_supplement_plan.py`：验证召回缺口分档不自动匹配、真正缺ZIP审计、所有阶段市场统一核心关键词计划、旧地点核验与主发现任务隔离，以及主任务按100项分批。
 * `test_rollout_maps_standard_execution.py`：验证统一Maps Standard执行入口只接受冻结的15市场30项核心发现任务，并拒绝遗漏市场或legacy定向核验混入付费主manifest。
 * `test_maps_supplement.py`：验证Maps核心结果排除付费广告、在市场内按稳定ID去重、统计两个关键词边际覆盖，并分别保留主类别分组、多标签类别证据和旧优先级结果。
-* `test_maps_supplement_audit.py`：验证Maps候选按实际ZIP审核、Business Listings显式纳入状态、市场内Google稳定ID精确重合及零自动地点合并。
+* `test_maps_supplement_audit.py`：验证Maps候选按实际ZIP审核，源ZIP缺失时仅接受地址末尾的州缩写加五位ZIP回退，且保持Business Listings显式纳入状态、市场内Google稳定ID精确重合及零自动地点合并。
 * `test_maps_only_review.py`：验证真正Maps独有profile、未覆盖市场、类别冲突队列和跨来源身份候选pair相互分开，并保持零自动类别决定与零自动地点合并。
 * `test_candidate_audit.py`：验证搜索候选审计能汇总关键词产出、候选重叠和覆盖情况。
 * `test_candidate_eligibility.py`：验证候选资格规则保留全部记录、分配互斥状态并拒绝重复规则类别。
@@ -67,6 +67,23 @@ python -m pytest -m "not real_data" -q
 * `test_identity_rule_validation.py`：验证放宽身份规则只生成精确名称、门牌号、地址相似度和距离支持的人工候选，并拒绝重复历史键且不自动确认身份。
 * `test_identity_rule_adjudication.py`：验证身份人工决定必须完整覆盖候选、保持历史标题身份不变，并正确区分确认匹配、分母排除和规则样本内精度。
 * `test_adjudicated_source_union.py`：验证已审核的身份匹配和分母排除只作用于指定reference key，并正确重算15市场联合召回率且不触发API或地点合并。
+* `test_maps_specialist_plan.py`：验证15个市场都获得同一组5个专业牙科关键词、75项任务成本与安全状态正确，并拒绝市场或关键词口径漂移。
+* `test_maps_specialist_execution.py`：验证75项专业关键词清单在提交前保持15市场统一口径，并正确统计每个关键词独有和共同发现的Google profile。
+* `test_maps_specialist_source_audit.py`：验证专业关键词profile经过目标ZIP后与既有来源精确去重，只将原联合表未发现的历史地点计为新增召回，并保持人工分母排除决定不变。
+* `test_specialist_followup_audit.py`：验证专业关键词后的10米身份候选、精确新增人工类别和缺ZIP记录分别进入队列，并确认只有历史身份决定能够改变市场召回率上限。
+* `test_specialist_followup_adjudication.py`：验证110个pair压缩为reference级决定、105行统一决定表完整覆盖、确认身份必须选择本block候选，并正确应用停业分母排除、profile资格和15市场召回率重算。
+* `test_post_adjudication_completion.py`：验证40a之后10个市场冻结主发现、3个市场进入定向状态审核、2个市场进入重设计，逐地点查询不进入主发现样本，并确保5个剩余单关键词统一应用于全部15市场而不恢复旧53组组合。
+* `test_reference_status_audit_execution.py`：验证42a和43a只执行冻结的历史地点状态审核，拒绝把查询计入主发现，拒绝task log身份漂移，并按已保存task ID正确断点续跑。
+* `test_reference_status_adjudication.py`：验证44a完整解析已下载状态结果、保留零结果reference、只接受本reference候选身份、经人工决定调整当前分母且不增加主发现分子。
+* `test_discovery_benchmark_freeze.py`：验证45a核对15市场门槛与reference守恒、取消75项条件性任务，并拒绝未完成审核、低于门槛或已经批准付费的异常状态。
+* `test_cross_source_profile_resolution.py`：验证46a先按稳定Google身份跨来源去重、继承早期人工profile决定并阻断标题身份漂移、完整生成剩余profile决定、保留legacy outcome lineage，并使用分块加市场内BallTree建立地点审核block而不自动合并。
+* `test_profile_eligibility_triage.py`：验证46b区分冻结排除规则、类别冲突、标题证据和外部证据队列，要求决定表与pending inventory精确覆盖，并保持零自动最终决定。
+* `test_profile_eligibility_review.py`：验证46c从统一inventory带入已有网站、电话与坐标并生成稳定Google profile证据链接，只允许同类别且共享domain的profile组成多profile块，其余记录保持单例，支持review block决定加row例外，并在块内成员未全部审核或profile决定未覆盖时停止应用。
+* `test_profile_eligibility_review_app.py`：验证46d审核页面完整嵌入row和block、保留CSV导出字段与本地保存逻辑，并拒绝人数不守恒或缺少共享domain依据的多profile块。
+* `test_profile_eligibility_external_evidence.py`：验证46e只选取仍未决定的外部证据profile，按共享domain、官网、电话和仅profile四条路径生成批量审核队列，并拒绝把不同domain的profile放入同一共享决定块。
+* `test_profile_eligibility_audit_freeze.py`：验证46f逐profile保存共享domain块内不同决定、拒绝身份字段漂移或重复profile，并保持零自动合并。
+* `test_profile_eligibility_original_freeze.py`：验证583条初始空白队列、570条修正空白队列和450条正式空白复核队列的嵌套关系，并拒绝把已有决定的进度快照冒充原始版。
+* `test_profile_eligibility_singleton_audit.py`：验证46h只处理第9版剩余单例，按官网页面具体程度排序且不自动填写最终决定，并拒绝仍含共享块或重复profile的输入。
 * `test_manual_candidate_review.py`：验证人工候选决策保留记录、覆盖全部待决候选并阻止身份漂移。
 * `test_panel.py`：验证年度面板构建、历史评论累计、进入年份缺失处理和混合日期格式保留。
 * `test_parse_business_info_results.py`：验证已下载Business Info文件的任务标签、身份和解析结果。
@@ -134,3 +151,7 @@ python -m pytest \
   tests/test_competition_units.py \
   tests/test_competition_unit_spatial_audit.py -q
 ```
+
+## 5. Legacy回归报告测试
+
+* `test_legacy_regression_report.py`：验证报告按实际ZIP分配市场、拒绝重复clinic-year、统一不同回归输出字段，并生成完整表格、图片和metadata。

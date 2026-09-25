@@ -22,18 +22,34 @@ def _payload_tag(payload: Mapping[str, Any]) -> str | None:
     return None if not isinstance(data, Mapping) or data.get("tag") is None else str(data["tag"])
 
 
-def parse_saved_maps_tasks(task_log: pd.DataFrame, raw_directory: Path) -> pd.DataFrame:
-    """Parse exactly thirty submitted and downloaded Maps core tasks."""
+def parse_saved_maps_tasks(
+    task_log: pd.DataFrame,
+    raw_directory: Path,
+    *,
+    expected_task_count: int = 30,
+    expected_market_count: int = 15,
+    expected_tasks_per_market: int = 2,
+) -> pd.DataFrame:
+    """Parse one complete, explicitly sized set of saved Maps tasks."""
 
     required = {"task_id", "task_tag", "market", "query", "submission_status"}
     missing = required - set(task_log.columns)
     if missing:
         raise KeyError(f"Maps task log is missing columns: {sorted(missing)}")
     submitted = task_log.loc[task_log["submission_status"].eq("submitted")].drop_duplicates("task_tag", keep="last").copy()
-    if len(submitted) != 30 or submitted["market"].nunique() != 15:
-        raise ValueError("Maps parser requires all 30 tasks across 15 markets")
-    if not submitted.groupby("market").size().eq(2).all():
-        raise ValueError("Maps parser requires two tasks per market")
+    if expected_task_count < 1 or expected_market_count < 1:
+        raise ValueError("Expected Maps task and market counts must be positive")
+    if expected_tasks_per_market < 1:
+        raise ValueError("Expected Maps tasks per market must be positive")
+    if (
+        len(submitted) != expected_task_count
+        or submitted["market"].nunique() != expected_market_count
+    ):
+        raise ValueError(
+            "Maps parser requires all expected tasks across all expected markets"
+        )
+    if not submitted.groupby("market").size().eq(expected_tasks_per_market).all():
+        raise ValueError("Maps parser found an incomplete per-market task set")
     records: list[dict[str, Any]] = []
     for row in submitted.to_dict(orient="records"):
         task_id = str(row["task_id"])
@@ -54,8 +70,37 @@ def parse_saved_maps_tasks(task_log: pd.DataFrame, raw_directory: Path) -> pd.Da
         )
         records.extend(parsed)
     if not records:
-        raise ValueError("All Maps core tasks returned zero observations")
+        raise ValueError("All saved Maps tasks returned zero observations")
     return pd.DataFrame.from_records(records)
+
+
+def keyword_profile_summary(candidates: pd.DataFrame) -> pd.DataFrame:
+    """Count profiles observed by each query, including exclusive discoveries."""
+
+    required = {"requested_location", "profile_key", "observed_queries"}
+    missing = required - set(candidates.columns)
+    if missing:
+        raise KeyError(f"Maps candidates are missing: {sorted(missing)}")
+    rows: list[dict[str, Any]] = []
+    for market, group in candidates.groupby("requested_location", sort=True):
+        query_sets = group["observed_queries"].map(
+            lambda value: {part for part in str(value).split("|") if part}
+        )
+        keywords = sorted(set().union(*query_sets.tolist()))
+        for keyword in keywords:
+            rows.append(
+                {
+                    "market": market,
+                    "query": keyword,
+                    "profiles_observed": int(
+                        query_sets.map(lambda values: keyword in values).sum()
+                    ),
+                    "profiles_exclusive_to_query": int(
+                        query_sets.map(lambda values: values == {keyword}).sum()
+                    ),
+                }
+            )
+    return pd.DataFrame.from_records(rows)
 
 
 def deduplicate_maps_by_market(observations: pd.DataFrame) -> pd.DataFrame:

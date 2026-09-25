@@ -185,6 +185,9 @@ def parse_maps_payload(
                 "url": item.get("url"),
                 "rating_value": rating.get("value"),
                 "votes_count": rating.get("votes_count"),
+                "business_status": item.get("business_status"),
+                "is_closed": item.get("is_closed"),
+                "is_temporarily_closed": item.get("is_temporarily_closed"),
                 **{f"rating_{star}_star": distribution.get(str(star)) for star in range(1, 6)},
                 "item_type": item.get("type"),
             }

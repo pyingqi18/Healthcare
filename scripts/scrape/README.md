@@ -515,3 +515,426 @@
     ```
 
     本步不调用API、不重新抓取、不删除历史面板记录，也不修改回归BallTree。调整后的剩余未匹配地点才是后续停业审核或定向补抓的输入。
+
+46. 十五市场统一专业关键词Maps补抓规划
+    34a读取33a人工修正后的市场级联合召回结果，并从config/scrape_plans.yaml读取已经冻结的5个专业关键词：orthodontist、pediatric dentist、periodontist、prosthodontist和oral surgeon。15个市场全部使用同一组关键词，每个市场5项，共75项Standard Maps任务。不能只给当前召回率低的市场加关键词，否则不同市场的搜索强度会由已经观察到的结果决定，后续地点密度和进入冲击将不再处于同一测量口径。
+
+    ```bash
+    python -m pytest tests/test_maps_specialist_plan.py -q
+
+    python scripts/scrape/34a_plan_uniform_maps_specialist_supplement.py \
+      --run-name full_market_plan_v2
+    ```
+
+    本步只生成maps_specialist_manifest.csv和maps_specialist_plan_summary.json，不读取账号密码、不提交API任务。当前计划为15个市场乘5个关键词，共75项，按配置价格预计0.045美元。规划通过后才会补提交、Tasks Ready下载、解析、ZIP审核和来源联合代码；本步不会把新profile直接认定为物理诊所。
+
+47. 专业关键词Maps任务提交、完成检查与解析
+    35a严格要求34a生成的75项清单完整覆盖15个市场和5个冻结关键词。第一次不带confirm-submit运行时只验证清单、已有task log和准确确认文字，不读取凭据。确认后75项Standard Queue任务通过一个HTTP POST批次提交，task log保存每项task ID、参数哈希、提交时间和状态，重复运行只提交尚未成功的任务。
+
+    ```bash
+    python -m pytest tests/test_maps_specialist_plan.py tests/test_maps_specialist_execution.py tests/test_maps_supplement.py -q
+
+    python scripts/scrape/35a_submit_maps_specialist_supplement.py \
+      --run-name full_market_plan_v2
+
+    python scripts/scrape/35a_submit_maps_specialist_supplement.py \
+      --run-name full_market_plan_v2 \
+      --confirm-submit SUBMIT_75_PAID_MAPS_SPECIALIST_TASKS
+    ```
+
+    36a先查询DataForSEO Tasks Ready，只对明确完成的task ID调用结果GET。未完成任务不会提前GET，已经保存的JSON不会重复下载。如果remaining_after_download大于0，稍后原样重跑带download-ready的命令。
+
+    ```bash
+    python scripts/scrape/36a_download_maps_specialist_supplement.py \
+      --run-name full_market_plan_v2
+
+    python scripts/scrape/36a_download_maps_specialist_supplement.py \
+      --run-name full_market_plan_v2 \
+      --download-ready
+    ```
+
+    只有remaining_after_download为0后才运行37a。解析器要求75个task和15个市场全部存在，检查原始JSON中的task tag，再去除付费广告结果，按Google profile身份在市场内去重，并保留每个profile由哪些专业关键词发现以及返回的主类别和附加类别证据。
+
+    ```bash
+    python scripts/scrape/37a_parse_maps_specialist_supplement.py \
+      --run-name full_market_plan_v2
+    ```
+
+    37a仍未执行目标ZIP过滤、跨来源身份匹配或物理地点合并。下一步使用完整候选表统一进行ZIP审核，并与Business Listings、两关键词Maps和融合legacy external参考集合重算增量召回率。
+
+48. 专业关键词目标ZIP、来源身份与联合召回率审核
+    38a一次完成专业关键词profile的实际ZIP资格、与Business Listings和两关键词Maps的精确Google profile重合、与融合历史competition unit的冻结规则匹配，以及33a人工修正后来源联合召回率的增量重算。该步骤读取已保存文件，不读取API凭据、不提交任务、不修改回归BallTree、不自动合并物理地点。
+
+    ```bash
+    python -m pytest \
+      tests/test_maps_specialist_source_audit.py \
+      tests/test_maps_supplement_audit.py \
+      tests/test_all_market_source_audit.py \
+      tests/test_adjudicated_source_union.py -q
+
+    python scripts/scrape/38a_audit_maps_specialist_source_union.py \
+      --run-name full_market_plan_v2
+    ```
+
+    输出保存在data/interim/full_market_plan_v2/maps_specialist_source_union_audit。maps_specialist_profile_audit.csv保留全部3003个profile及ZIP和类别状态。源ZIP为空时，程序只从地址末尾明确的州缩写加五位ZIP恢复邮编，并在zip_resolution_method记录address_text_fallback。非空源ZIP不会被地址覆盖，任意位置出现的五位数字也不会被当成ZIP。exact overlap文件只说明相同Google profile；reference matches使用冻结的地址、电话、10米坐标加名称和100米电话规则；source_union_after_specialist只把33a之后仍未发现、现被专业关键词匹配的当前reference记为增量。人工排除的reference不会被重新放回分母。
+
+    如果summary中的低于80%市场仍存在，下一步进入条件性小市场原因诊断。专业关键词独有profile仍需后续物理地点审核，不能直接作为新增诊所或竞争密度。
+
+49. 专业关键词后续人工队列与市场缺口诊断
+    39a读取38a的完整profile资格表、精确来源重合、历史匹配pair、剩余未匹配reference和15市场召回表。程序一次生成两类人工队列：第一类只包含仍未匹配且专业关键词给出10米内坐标弱证据的历史地点；第二类只包含专业关键词精确新增profile中的人工类别记录，以及所有缺ZIP记录。类别或缺ZIP profile不会被当成历史reference匹配，也不会自动提高召回率。
+
+    ```bash
+    python -m pytest tests/test_specialist_followup_audit.py -q
+
+    python scripts/scrape/39a_build_specialist_followup_review.py \
+      --run-name full_market_plan_v2
+    ```
+
+    输出保存在data/interim/full_market_plan_v2/maps_specialist_followup_review。market_coverage_gap_diagnostic.csv同时计算每个市场即使把所有待核实身份都确认后的理论最高召回率。当前数据中Saranac Lake和Vidalia没有这类待确认身份，因此不能靠放宽身份规则达到80%；两地会被明确标记为完成当前状态审核后需要统一发现方式重设计。本步不调用API、不自动确认身份、不自动归并profile，也不改变15市场统一搜索原则。
+
+    2026-09-19复核发现，首次39a的10个缺ZIP profile中有5个地址文本已经明确写出ZIP。安装地址ZIP回退修复后，需要用--overwrite依次重跑38a和39a。修正预计将目标ZIPprofile由2347调整为2350，目标ZIP外由646调整为648，真正缺ZIP由10调整为5；Syracuse新增补回1个历史reference。旧的38a与39a输出不应继续作为下一步人工决定输入。
+
+50. 专业关键词后续统一人工决定与应用
+    40a将39a的110个identity pair压缩成21个reference级决定，并把它们与79个类别决定和5个地理决定合并成一份105行CSV。每个历史身份决定仍可在specialist_identity_review_queue.csv查看全部候选；统一决定表只显示38a最佳候选和候选总数，避免要求审核人填写110行重复reference决定。
+
+    第一次运行只生成决定表：
+
+    ```bash
+    python -m pytest tests/test_specialist_followup_adjudication.py -q
+
+    python scripts/scrape/40a_adjudicate_specialist_followup.py \
+      --run-name full_market_plan_v2
+    ```
+
+    输出的specialist_followup_decisions.csv需要填写manual_decision、decision_evidence、reviewed_by和reviewed_on。确认同一或改名地点时，还必须从对应pair block中填写selected_candidate_key。缺ZIP profile被判定为目标ZIP且原类别规则仍需人工判断时，需要同时填写secondary_category_decision。
+
+    填完后使用同一入口应用决定：
+
+    ```bash
+    python scripts/scrape/40a_adjudicate_specialist_followup.py \
+      --run-name full_market_plan_v2 \
+      --decisions "data/interim/full_market_plan_v2/maps_specialist_followup_adjudication/specialist_followup_decisions.csv" \
+      --overwrite
+    ```
+
+    脚本一次输出校验后的决定、确认身份、profile最终资格、reference级联合表、15市场召回率和summary。historical_location_closed与historical_reference_out_of_scope退出当前发现基准，但不会删除历史面板记录。本步不调用API，也不执行物理地点合并。
+
+51. 人工决定后的缺口收口规划
+    40a应用结果共有3575个当前历史参考地点，来源联合发现3398个，联合召回率95.05%，剩余177个。达到90%门槛的10个市场停止扩大主发现层；Eureka、FortBragg和Toccoa进入逐地点当前状态审核；SaranacLake和Vidalia同时进入逐地点状态审核及条件性发现方式重设计。
+
+    40a原summary把3个未决profile在reviewed表和profile结果表各数一次，因此显示remaining_unresolved_decisions为7。实际唯一未决决定为4行，即1条历史身份和3条profile。修正后重跑40a只改变该摘要数字，不改变人工决定、3575个分母、3398个发现地点、177个缺口或市场分档。
+
+    41a一次生成市场行动表、177个剩余reference完整清单、5个低于90%市场的逐地点状态查询清单、15市场统一剩余关键词清单和4条未决决定清单。逐地点查询只核对旧reference当前状态，明确标记为不进入主发现样本。统一发现层只使用family dentist、general dentistry、cosmetic dentist、dental implants和emergency dentist五个单关键词，共75项；不恢复旧53组关键词组合。
+
+    ```bash
+    python -m pytest \
+      tests/test_specialist_followup_adjudication.py \
+      tests/test_post_adjudication_completion.py -q
+
+    python scripts/scrape/40a_adjudicate_specialist_followup.py \
+      --run-name full_market_plan_v2 \
+      --decisions "data/interim/full_market_plan_v2/maps_specialist_followup_adjudication/specialist_followup_decisions.csv" \
+      --overwrite
+
+    python scripts/scrape/41a_plan_post_adjudication_completion.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    41a不读取账号密码，也不提交API。reference_status_audit_manifest.csv需要先检查title和address查询是否合理；uniform_residual_keyword_manifest.csv虽然已经统一生成，但仍为prepared_conditional_not_approved，不能与逐地点状态审核混为同一主发现数据。
+
+52. 五个低门槛市场的历史地点状态审核提交与下载
+    42a只接受41a冻结的reference_status_audit_manifest.csv和对应摘要。它检查50项任务、Eureka、FortBragg、SaranacLake、Toccoa、Vidalia五个市场、reference key、查询文字和0.03美元预计费用完全一致，并强制included_in_main_discovery_pipeline为false。第一次运行仅验证，不读取凭据、不提交任务。
+
+    ```bash
+    python -m pytest tests/test_reference_status_audit_execution.py tests/test_post_adjudication_completion.py -q
+
+    python scripts/scrape/42a_submit_reference_status_audit.py \
+      --run-name full_market_plan_v2
+    ```
+
+    确认输出仍为50项、五个指定市场且确认文字为SUBMIT_50_PAID_REFERENCE_STATUS_AUDIT_TASKS后，才执行付费提交：
+
+    ```bash
+    python scripts/scrape/42a_submit_reference_status_audit.py \
+      --run-name full_market_plan_v2 \
+      --confirm-submit SUBMIT_50_PAID_REFERENCE_STATUS_AUDIT_TASKS
+    ```
+
+    43a默认只检查task log和本地已保存结果，不读取凭据。加入download-ready后只下载Tasks Ready明确列出的task ID，并核对返回tag与原清单身份一致。
+
+    ```bash
+    python scripts/scrape/43a_download_reference_status_audit.py \
+      --run-name full_market_plan_v2
+
+    python scripts/scrape/43a_download_reference_status_audit.py \
+      --run-name full_market_plan_v2 \
+      --download-ready
+    ```
+
+    这50项查询只为审核旧reference当前状态，结果不能直接计为新增诊所发现。41a准备的75项uniform residual discovery任务仍保持未批准，本阶段不得一起提交。
+
+53. 解析50项状态结果并统一人工判定
+    43a已经确认50个task全部ready并下载完成，未发生提前GET。44a一次解析全部保存结果，按reference整理候选名称、地址、电话、域名、坐标距离和provider返回的状态字段，并生成一份50行人工决定表。没有返回候选不等于停业，出现关闭字段也不直接删除历史地点，所有最终状态均需人工确认。
+
+    ```bash
+    python -m pytest \
+      tests/test_reference_status_adjudication.py \
+      tests/test_reference_status_audit_execution.py \
+      tests/test_parsing.py -q
+
+    python scripts/scrape/44a_adjudicate_reference_status_audit.py \
+      --run-name full_market_plan_v2
+    ```
+
+    第一遍输出目录为`data/interim/full_market_plan_v2/reference_status_audit_adjudication`。主要查看`reference_status_candidate_evidence.csv`，并在`reference_status_decisions.csv`中填写manual_decision、selected_candidate_key、decision_evidence、evidence_url、reviewed_by和reviewed_on。
+
+    manual_decision只允许以下值：
+
+    * `active_same_historical_location`：确认返回profile与历史地点相同。
+    * `active_renamed_or_relocated_location`：确认历史实体仍有效，但已经改名或搬迁。
+    * `active_reference_not_rediscovered`：确认旧地点仍应在当前分母中，但本次查询没有可靠匹配。
+    * `historical_location_closed`：确认历史地点已经关闭，从当前reference分母退出，历史panel不删除。
+    * `historical_reference_out_of_scope`：确认该地点不属于当前研究范围，从当前reference分母退出。
+    * `unresolved`：证据不足，暂不改变分母。
+
+    前两项必须从对应candidate evidence中填写selected_candidate_key。其余决定不得填写selected_candidate_key。全部填完后运行：
+
+    ```bash
+    python scripts/scrape/44a_adjudicate_reference_status_audit.py \
+      --run-name full_market_plan_v2 \
+      --decisions "config/reference_status_manual_decisions_20260919.csv" \
+      --overwrite
+    ```
+
+    应用阶段输出校验后的决定、更新后的reference级来源联合表、15市场新召回率和summary。定向查询中确认找到的profile只记为targeted_status_profile_found，main discovery numerator increase固定为0。75项统一剩余关键词任务仍不自动批准，必须根据44a后的分母、缺口和市场行动重新决定。
+
+    本轮实际证据中50项均为非牙科provider历史reference。49项返回美甲、宠物、药房、医院、普通医疗、眼科、妇产科、保险、政府或其他非牙科类别；Claudio Dental Laboratory命中冻结规则中明确排除的Dental laboratory。逐条决定已冻结在`config/reference_status_manual_decisions_20260919.csv`，运行应用命令前仍由44a校验决定覆盖、证据字段和reference身份。
+
+54. 冻结15市场主发现基准并取消条件性75项任务
+    44a实际应用结果为3525个当前reference、3398个来源联合发现地点、96.40%联合召回率和127个仍未匹配reference。15个市场全部达到冻结的90%市场门槛，50项状态审核没有增加主发现分子，没有自动合并profile或地点，也没有修改回归BallTree。
+
+    45a同时核对44a summary、15市场表、reference级来源联合表和41a的75项条件性清单。只有四份输入逐项守恒且15个市场全部为`freeze_primary_discovery`时，才输出冻结表。75项任务会逐行保留，但最终状态改为`cancelled_not_needed_after_gate`，不会读取凭据或提交API。
+
+    ```bash
+    python -m pytest \
+      tests/test_discovery_benchmark_freeze.py \
+      tests/test_reference_status_adjudication.py \
+      tests/test_post_adjudication_completion.py -q
+
+    python scripts/scrape/45a_freeze_primary_discovery_benchmark.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    输出目录为`data/interim/full_market_plan_v2/primary_discovery_benchmark_freeze`。其中`frozen_active_reference_source_union.csv`冻结当前参考基准，`frozen_discovery_benchmark_by_market.csv`保存15市场实际召回率，`validated_legacy_carry_forward_inventory.csv`保存127个仍有效但未被新来源发现的历史地点，`uniform_residual_keyword_manifest_cancelled.csv`保存75项不执行决定，`discovery_benchmark_freeze_summary.json`保存输入SHA256和下一阶段边界。
+
+    这一步只冻结历史reference覆盖率，不代表已经得到最终诊所数。下一阶段必须合并Business Listings、两关键词Maps、专业关键词Maps和validated legacy carry-forward的目标ZIP内profile，再分别冻结Google outcome profile与物理competition location。
+
+55. 统一跨来源profile并建立15市场地点审核block
+    46a读取四类已经冻结的输入：全市场Business Listings资格表、两关键词Maps核心profile、五关键词Maps专业profile和127个validated legacy carry-forward。第一遍先按市场加CID或place_id形成的稳定profile key精确去重，不用标题或坐标自动合并Google profile。已完成的pilot人工决定由`config/candidate_manual_decisions_20260908.csv`按稳定profile key继承，专业profile人工决定由专业审核输出继承；继承时再次核对标题，身份不一致会停止运行。若一个pending profile的全部observed category都已有冻结exclude规则，46a直接执行该规则并保留逐类别原因，不再把规则应用伪装为新的人工审核。其余类别冲突、manual category和未知类别进入同一份决定表。
+
+    ```bash
+    python -m pytest \
+      tests/test_cross_source_profile_resolution.py \
+      tests/test_discovery_benchmark_freeze.py -q
+
+    python scripts/scrape/46a_prepare_cross_source_location_review.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    第一遍输出`unified_cross_source_profile_inventory.csv`、`profile_eligibility_decisions.csv`、`legacy_carry_forward_location_anchors.csv`、`legacy_carry_forward_outcome_lineage.csv`和准备摘要。准备摘要同时记录复用的早期人工决定数。只需填写决定表中的manual_decision、decision_evidence、evidence_url、reviewed_by和reviewed_on，其余身份和来源列不得修改。
+
+    决定完成后使用同一入口应用：
+
+    ```bash
+    python scripts/scrape/46a_prepare_cross_source_location_review.py \
+      --run-name full_market_plan_v2 \
+      --decisions "data/interim/full_market_plan_v2/cross_source_profile_location_review/profile_eligibility_decisions.csv" \
+      --overwrite
+    ```
+
+    应用阶段先生成最终纳入的Google profile，再把127个legacy carry-forward作为competition location anchor加入地点审核。carry-forward表示按冻结的市场召回门槛继续保留，不代表127个地点逐一确认仍在营业，因此输出明确标记current_status_individually_verified=false，并要求最终exposure保留一项排除未逐一验证carry-forward的敏感性比较。候选pair使用标准化地址、电话、domain和每个市场内部500米BallTree建立，不执行全市场两两笛卡尔比较。BallTree仅缩小人工地点审核候选范围，不修改回归的空间邻居或exposure。输出的连通block和routine、focused、complex分档都只是审核顺序，自动地点合并仍为0。
+
+56. 剩余profile资格批量审核辅助
+    46b读取46a的空白决定表、统一profile inventory和`config/google_category_rules.csv`。它把每条pending profile拆成冻结类别规则、标题牙科信号、标题非牙科信号和未知类别，再输出逐profile triage、147个类别证据组、未知类别规则候选表和汇总。它只给出审核建议，不填写manual_decision，不调用API，也不改变provider taxonomy。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_triage.py \
+      tests/test_cross_source_profile_resolution.py -q
+
+    python scripts/scrape/46b_prepare_profile_eligibility_triage.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    修正后的46a应先把120个一致冻结排除规则直接应用，使待审profile从570降至450。46b预计把450条分成33条类别冲突、91条标题牙科证据、43条辅助或非provider类别证据和283条需要进一步证据的记录。建议不是最终决定；任何批量接受都必须保留具体规则或外部证据，最终仍通过46a的完整决定覆盖和身份列不变检查。
+
+57. 组合类别组决定与逐profile例外
+    46b实际输出已核对为450条profile、147个类别组和104个未知类别值，三者逐项守恒且没有重复profile key或decision ID。80条建议纳入和87条建议排除只用于排序，不能直接视为最终资格。类别冲突中存在同时带牙科和非provider类别的profile，标题信号中也存在类别明显冲突的记录，因此46c不自动接受任何建议。
+
+    46c第一遍为每个稳定Google profile生成可直接打开的证据URL，同时从46a统一inventory带入已有网站、domain、电话、票数和坐标，再生成两份可同时使用的人工审核表。实际450条中357条已有网站，440条有电话，445条至少有网站或电话，只有5条两者都没有。审核应先查已有网站，再核对Google profile，不应重新提交API任务取得已经存在的身份资料。
+
+    147个`category_group_id`只用于分析，不充当决定单元。最大的`Medical clinic`分析组有110条，内部证据不同，整组决定会制造分类错误。进一步检查还发现非external层的标题或类别证据组也会混入无关机构，例如26条`Medical clinic`标题证据、10条`Veterinarian`和8条`Dental school`。因此所有层统一使用同一条规则：只有同一类别组内重复出现同一非空domain时才能组成共享审核块，其余记录全部保持单例。最终group文件共有410个唯一`review_block_id`，其中27个共享domain块覆盖67条profile，383个为单例。block表允许审核者在检查块内全部成员后给出统一决定，也允许标记`individual_review`。row表用于块内例外。一个块若使用统一决定，`reviewed_member_count`必须等于`profile_count`；逐条决定优先于block决定。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_review.py \
+      tests/test_profile_eligibility_triage.py \
+      tests/test_cross_source_profile_resolution.py -q
+
+    python scripts/scrape/46c_prepare_apply_profile_eligibility_review.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    第一遍输出目录为`data/interim/full_market_plan_v2/profile_eligibility_review`。46c会先读取`config/profile_eligibility_verified_decisions_20260924.csv`，按稳定profile key、市场、标题和地址四重校验后预填已有官网证据的决定；身份发生变化会停止运行。其余记录按`review_block_id`填写`profile_eligibility_review_groups.csv`中的group_manual_decision、reviewed_member_count、group_decision_evidence、reviewed_by和reviewed_on。异质块填`individual_review`，然后在`profile_eligibility_review_rows.csv`中逐条填写manual_decision、decision_evidence、evidence_url、reviewed_by和reviewed_on。row决定也可覆盖块内少量例外。不要按`category_group_id`把多个review block重新合并。
+
+    截至2026-09-24，冻结决定表已有163条逐profile决定，其中87条纳入牙科provider、76条排除非provider。33条`focused_category_conflict`记录中32条已预填；Emory Clinic的官网确认1365 Clifton Road提供口腔颌面外科，Humiston Bridget的精确地址证据确认其接收牙科患者，仍保留官网当前地址与profile地址不同的Dr. Benjamin Blackburn。43条`focused_category_evidence`已全部完成；UB的320 Hayes Rd是正畸患者诊所，UCLA PatientAccess也明确把10833 Le Conte Ave列为School of Dentistry Dental Clinics地址，因此两条均纳入。91条`focused_title_evidence`中86条已经逐profile核实。审核没有机械接受标题建议：APLA CDU/MLK、Golden Valley Hanshaw、NEMS Stockton、NEMS San Bruno、Southside Medical Center、Ezra 13th Avenue和One Brooklyn Health Brookdale虽然标题是综合医疗机构，但官网明确显示该地址提供牙科，因此纳入；Altadena Dental Center和Daria Vasilyeva的1244 Amsterdam地址也已有精确患者服务证据。Tooth Preventive Dental的链接和类别指向整形外科且没有牙科证据，因此排除。DENTAL CLINIC LLC、Taylor Judy a DDS、Dr. mihai M. oral、Urgent Care Dentist 24/7和All Dental Technology五条仍缺少可靠的当前患者服务或身份注册证据。保留记录不是默认排除，不能用搜索不到替代排除证据。重新运行46c后应得到163条预填决定，剩余287条包括281条`external_evidence_required`、5条`focused_title_evidence`和1条`focused_category_conflict`。
+
+    全部审核完成后运行：
+
+    ```bash
+    python scripts/scrape/46c_prepare_apply_profile_eligibility_review.py \
+      --run-name full_market_plan_v2 \
+      --apply-reviewed \
+      --row-decisions "data/interim/full_market_plan_v2/profile_eligibility_review/profile_eligibility_review_rows.csv" \
+      --group-decisions "data/interim/full_market_plan_v2/profile_eligibility_review/profile_eligibility_review_groups.csv" \
+      --overwrite
+    ```
+
+    应用阶段必须覆盖全部450条，否则停止运行。输出的`profile_eligibility_decisions_completed.csv`保持46a原决定表的身份列和列结构，可直接传给46a；`profile_eligibility_decision_audit.csv`另行记录每条决定来自group还是row。46c不调用API、不改变类别规则、不合并profile或地点，也不修改回归BallTree。
+
+58. 本地profile资格人工审核页面
+    第三版46c输出已核对为450条profile、410个review block、27个共享domain块和383个单例，最大块为6条。46d再次检查decision ID、profile key、review_block_id、block人数和共享domain约束，然后生成单一HTML文件。页面不需要本地服务器，直接用浏览器打开即可。它逐块显示已有网站、Google profile、电话、地址和类别，自动保存本机浏览器中的审核进度，并提供未完成、已完成和individual review筛选。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_review_app.py \
+      tests/test_profile_eligibility_review.py \
+      tests/test_profile_eligibility_triage.py \
+      tests/test_cross_source_profile_resolution.py -q
+
+    python scripts/scrape/46d_build_profile_eligibility_review_app.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    页面位置为`data/interim/full_market_plan_v2/profile_eligibility_review/profile_eligibility_review.html`。对于统一block决定，必须打开并检查全部成员，勾选完整审核，并填写决定证据、审核人和日期。共享domain不保证所有地点都提供同样服务；证据混合时选择`individual_review`并逐条填写。两个导出按钮分别生成`profile_eligibility_review_groups_reviewed.csv`和`profile_eligibility_review_rows_reviewed.csv`。中途可以导出备份，但只有页面显示410块全部完成后才运行46c的`--apply-reviewed`。
+
+    页面只在浏览器中保存人工输入，不会上传资料、调用API、修改原CSV、执行profile或地点合并，也不修改回归BallTree。
+
+59. 外部证据批量审核队列
+    第8版46c文件已核对为450条profile、410个冻结审核块和163条已预填决定。剩余287条中，281条属于`external_evidence_required`，其余为5条标题证据和1条类别冲突。46e只选择这281条外部证据记录，并把它们整理成审核单元、逐profile证据表和domain导航表，不再要求审核者在450条总表里反复筛选。
+
+    真实数据中281条外部证据记录形成252个审核单元：20个共享domain块覆盖49条profile，232个单例；217条已有网站，273条有电话，276条至少有一种现成联系证据，5条两者都没有。审核顺序固定为共享domain块、已有官网单例、只有电话的单例、没有现成联系证据的单例。代码给每条记录生成精确标题、地址和电话搜索链接，也生成限定现有domain的站内搜索链接。搜索链接只是证据入口，不是决定。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_external_evidence.py \
+      tests/test_profile_eligibility_review.py \
+      tests/test_profile_eligibility_triage.py \
+      tests/test_cross_source_profile_resolution.py -q
+
+    python scripts/scrape/46e_prepare_profile_eligibility_external_evidence.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    输出目录为`data/interim/full_market_plan_v2/profile_eligibility_external_evidence_audit`。`external_evidence_audit_units.csv`用于按252个单元安排审核，`external_evidence_profiles.csv`保留281条精确profile证据和搜索入口，`external_evidence_domains.csv`用于复用网站导航工作，summary记录当前口径。相同domain只允许复用查找路径，不能证明不同地址都提供牙科，也不能直接批量纳入或排除。46e不请求API、不抓取复杂HTML、不填写最终决定、不合并profile或地点，也不修改回归BallTree。
+
+60. 冻结第8版证据并应用共享domain逐profile审核
+    46f同时解决两个问题。第一，它把第8版row、group、summary和46e四个输出连同审核前后的决定表保存为独立冻结档案，因此安装用zip删除后仍能复核。第二，它要求20个共享domain单元中的49条profile全部逐地址决定，拒绝profile key、市场、标题或地址变化，也拒绝缺少证据、URL、审核来源或日期的决定。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_audit_freeze.py \
+      tests/test_profile_eligibility_external_evidence.py \
+      tests/test_profile_eligibility_review.py -q
+
+    python scripts/scrape/46f_freeze_shared_domain_profile_audit.py \
+      --review-rows "data/interim/full_market_plan_v2/profile_eligibility_review/profile_eligibility_review_rows.csv" \
+      --review-groups "data/interim/full_market_plan_v2/profile_eligibility_review/profile_eligibility_review_groups.csv" \
+      --review-summary "data/interim/full_market_plan_v2/profile_eligibility_review/profile_eligibility_review_prepare_summary.json" \
+      --external-profiles "data/interim/full_market_plan_v2/profile_eligibility_external_evidence_audit/external_evidence_profiles.csv" \
+      --external-units "data/interim/full_market_plan_v2/profile_eligibility_external_evidence_audit/external_evidence_audit_units.csv" \
+      --external-domains "data/interim/full_market_plan_v2/profile_eligibility_external_evidence_audit/external_evidence_domains.csv" \
+      --external-summary "data/interim/full_market_plan_v2/profile_eligibility_external_evidence_audit/external_evidence_audit_summary.json" \
+      --overwrite
+    ```
+
+    真实审核结果为20个单元、49条profile、34条纳入和15条排除。旧163条决定与49条新增决定合并后共有212条，其中121条纳入、91条排除，还剩238条profile未完成。本次代码包已经带有完成的冻结目录`archive/profile_eligibility_review/20260924_v8`，正常继续分析时不必再次运行46f；上面的命令用于以后从本地原始文件重新生成并核验档案。脚本既接受163条审核前决定，也接受内容完全一致的212条审核后决定，但拒绝只混入部分新增决定的中间状态。`profile_eligibility_review_freeze_20260924_v8.zip`是以后人工复核所需的数据档案，不是安装包，也不需要解压才能继续当前pipeline。`MANIFEST.sha256.csv`逐文件记录大小和哈希，`freeze_archive_metadata.json`记录冻结包自身哈希。46f不调用API、不自动合并profile或地点，也不修改回归BallTree。
+
+61. 冻结未经填写的原始profile复核基线
+    46g用于纠正“原始版”和“进度版”的命名混淆。真实生成链为583条初始空白待审profile，复用13条旧决定后得到570条，再由120条一致冻结类别排除得到450条正式人工复核profile。最终可执行审核结构是450条全空白row和410个全空白review block。第8版163条预填和第9版212条预填都属于后续进度快照。
+
+    原始基线已经冻结在`archive/profile_eligibility_review/original_manual_review_20260924`。真正用于以后重新人工复核的文件是`data/02_canonical_manual_review_rows_450_blank.csv`，对应块文件是`data/03_canonical_manual_review_groups_410_blank.csv`。`REVIEW_NOTE.md`说明每个文件的作用；583条与570条文件只解释筛选轨迹，不能作为当前人工任务量。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_original_freeze.py \
+      tests/test_profile_eligibility_audit_freeze.py -q
+    ```
+
+    46g会检查三个队列全部为空白决定、profile key唯一、13与120的差额准确、450条身份与triage完全相同、410块人数合计450，并验证450条都存在于29,984条统一inventory。输出档案带逐文件SHA-256；不调用API、不改变当前212条进度、不合并profile或地点，也不修改回归BallTree。
+
+62. 第9版剩余单例审核排序
+    46h直接读取第9版450条row文件，要求已有212条决定、剩余238条，并拒绝剩余队列中仍出现共享block。实际核对后，238条全部是单例，其中169条有保存官网、69条没有保存官网；232条属于`external_evidence_required`，5条属于`focused_title_evidence`，1条属于`focused_category_conflict`。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_singleton_audit.py \
+      tests/test_profile_eligibility_original_freeze.py \
+      tests/test_profile_eligibility_audit_freeze.py -q
+
+    python scripts/scrape/46h_prepare_singleton_profile_audit.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    输出目录为`data/interim/full_market_plan_v2/profile_eligibility_singleton_audit`。`singleton_profile_audit.csv`完整保留238条未决定profile，`specific_official_page_priority_batch.csv`只保留39条证据最具体的官网页面，summary记录守恒与路由数量。39条优先记录包括4条牙科服务路径、28条名称与页面路径匹配的地点或医生页，以及7条官网结构化地点、医生或服务页。其余5条官网子页、125条官网主页、64条电话加Google profile和5条仅Google profile依次处理。
+
+    页面分类只是审核顺序，不是最终资格判断。即使URL中出现dental，也仍要核对该页面是否对应当前profile地址并提供面向患者的牙科服务；只有主页或搜索不到网页也不能作为排除依据。46h生成的五个`audit_`决定字段全部为空，不会自动修改212条冻结决定、不调用API、不合并profile或地点，也不修改回归BallTree。
+
+63. 39条具体官网记录的一次性应用
+    46i不再拆分新的审核小步骤。配套决定文件是人工官网审核输入，不由代码自动生成。脚本负责读取46h的238条和39条文件，逐条核对人工决定的profile key、顺序、证据字段和完整覆盖，再生成四份data输出；profile key、优先序号、决定值或证据字段不一致都会停止。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_priority_audit.py \
+      tests/test_profile_eligibility_singleton_audit.py \
+      tests/test_profile_eligibility_audit_freeze.py -q
+
+    python scripts/scrape/46i_apply_specific_official_page_audit.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    真实核对结果为39条中20条纳入、19条排除。212条既有决定追加后变为251条，剩余199条单例。输出目录为`data/interim/full_market_plan_v2/profile_eligibility_priority_audit`，其中更新后的verified文件是下一轮唯一决定基线；remaining文件是下一轮完整工作队列。脚本不提交API、不自动合并profile或地点，也不修改回归BallTree。
+
+64. 剩余199条profile的一次性完成入口
+    46j把46i留下的199条单例合并成一份决定表。第一次运行生成`remaining_profile_decisions.csv`，每条同时给出官网、精确Google profile、电话和精确标题地址搜索入口。`remaining_profile_organization_index.csv`只用于复用官网导航，不允许按机构整批决定。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_completion.py \
+      tests/test_profile_eligibility_priority_audit.py \
+      tests/test_profile_eligibility_audit_freeze.py -q
+
+    python scripts/scrape/46j_complete_remaining_profile_eligibility.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    只填写同一份CSV中的`manual_decision`、`decision_evidence`、`evidence_url`、`reviewed_by`和`reviewed_on`。199条全部完成后，用同一个脚本应用，不再创建按官网、电话或Google profile拆分的后续脚本：
+
+    ```bash
+    python scripts/scrape/46j_complete_remaining_profile_eligibility.py \
+      --run-name full_market_plan_v2 \
+      --decisions "data/interim/full_market_plan_v2/profile_eligibility_completion/remaining_profile_decisions.csv" \
+      --overwrite
+    ```
+
+    应用阶段要求199条完整覆盖、身份字段不变、决定值合法且五个审核字段无空白；通过后输出450条最终verified决定。脚本不根据`Medical clinic`自动排除社区医疗中心，因为机构提供牙科不等于当前地址提供牙科，反过来也不能仅凭通用医疗类别判定没有牙科。

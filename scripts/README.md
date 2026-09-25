@@ -157,3 +157,15 @@
 
 7. 修改规则
    脚本只负责读取参数、调用src函数和写出结果。可复用的数据逻辑应放入src/medical_ratings。
+
+8. Legacy回归图表报告
+   `16_build_legacy_regression_report.py`读取corrected_v1诊所与panel、strict 009a self-excluded panel，以及04至15已经生成的回归系数文件。它不会重跑回归、修改exposure或改动BallTree，只统一输出描述统计表、回归长表、固定数量的图片和一份中文Markdown报告。
+
+   ```bash
+   python scripts/16_build_legacy_regression_report.py --overwrite
+   ```
+
+   默认输出位置为`outputs/legacy_reproduction/corrected_v1/report`。其中`legacy_regression_report.md`是报告入口，`figures`保存图片，`tables`保存报告引用的精确数值。缺少某个可选回归结果时，程序会在metadata和报告末尾列出文件，不会用其他模型结果代替。
+
+9. 当前抓取恢复入口
+   抓取线已经冻结45a主发现benchmark。46a至46c将跨来源profile去重、冻结规则排除、人工资格triage和review block分开处理。第三版46c保留450条待审profile，并冻结为410个决定块，其中27个块具有同类别组共享domain证据，383个为单例。46d生成本地HTML审核页面；46e至46g完成外部证据队列、共享domain逐profile审核和原始450条空白基线冻结。当前第9版已有212条决定，46h把剩余238条单例按官网页面具体程度排序，先输出39条具体官网页面批次。完整命令和边界说明见`scripts/scrape/README.md`第55至62节。

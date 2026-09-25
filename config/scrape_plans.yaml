@@ -86,6 +86,22 @@ profiles:
           - oral surgeon
         condition: >-
           Run only if specialist recall remains incomplete after the core tier.
+      - phase_id: maps_residual_singleton_redesign
+        status: conditional_not_approved
+        discovery_method: google_maps_standard
+        markets: all
+        depth: 100
+        keywords:
+          - family dentist
+          - general dentistry
+          - cosmetic dentist
+          - dental implants
+          - emergency dentist
+        condition: >-
+          Prepare only after the uniform core and specialist tiers. Submit only if
+          below-gate markets remain after current-status reference review. Apply the
+          same singleton keywords to all 15 markets and do not restore the legacy
+          53 keyword combinations.
 
 business_listings_pilot:
   planning_only: true

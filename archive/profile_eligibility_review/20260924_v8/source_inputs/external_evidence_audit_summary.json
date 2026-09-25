@@ -1,0 +1,33 @@
+{
+  "analysis_status": "external_profile_evidence_audit_queue_prepared_not_final",
+  "api_requests_submitted": 0,
+  "input_profile_rows": 450,
+  "already_decided_profiles": 163,
+  "remaining_profile_rows": 287,
+  "external_evidence_profiles": 281,
+  "external_evidence_audit_units": 252,
+  "shared_domain_audit_units": 20,
+  "profiles_in_shared_domain_audit_units": 49,
+  "singleton_audit_units": 232,
+  "profiles_with_saved_website": 217,
+  "profiles_with_phone": 273,
+  "profiles_with_website_or_phone": 276,
+  "profiles_without_website_or_phone": 5,
+  "unique_nonblank_domains": 171,
+  "profiles_by_evidence_route": {
+    "direct_website_singleton": 168,
+    "phone_and_profile_singleton": 59,
+    "profile_only_singleton": 5,
+    "shared_domain_block": 49
+  },
+  "audit_units_by_evidence_route": {
+    "direct_website_singleton": 168,
+    "phone_and_profile_singleton": 59,
+    "profile_only_singleton": 5,
+    "shared_domain_block": 20
+  },
+  "automatic_final_decisions_applied": 0,
+  "automatic_profile_or_location_merges": 0,
+  "regression_balltree_modified": false,
+  "next_required_action": "Audit shared-domain units first, then direct-website singletons. Record only exact profile decisions supported by current patient-facing evidence."
+}

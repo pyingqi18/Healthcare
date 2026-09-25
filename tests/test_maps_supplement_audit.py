@@ -8,6 +8,7 @@ from medical_ratings.maps_supplement_audit import (
     audit_maps_candidates,
     build_business_listings_profile_index,
     compare_maps_with_business_listings,
+    recover_missing_maps_zip,
 )
 
 
@@ -86,6 +87,35 @@ def test_maps_audit_uses_actual_zip_and_keeps_all_profiles() -> None:
         status.loc["google:cid:3", "eligibility_review_status"]
         == "manual_category_review"
     )
+
+
+def test_maps_audit_recovers_missing_zip_from_address_suffix() -> None:
+    candidate = maps_candidates().iloc[[0]].copy()
+    candidate["zip"] = pd.NA
+    candidate["address"] = "10 Main St, Example, NY 12345"
+    reviewed = audit_maps_candidates(candidate, regions(), category_rules())
+    row = reviewed.iloc[0]
+    assert row["normalized_zip"] == "12345"
+    assert row["zip_resolution_method"] == "address_text_fallback"
+    assert row["market_assignment_status"] == "eligible_target_zip"
+
+
+def test_maps_zip_recovery_does_not_replace_nonblank_source_zip() -> None:
+    candidate = maps_candidates().iloc[[0]].copy()
+    candidate["zip"] = "99999"
+    candidate["address"] = "10 Main St, Example, NY 12345"
+    recovered = recover_missing_maps_zip(candidate)
+    assert recovered.iloc[0]["zip"] == "99999"
+    assert recovered.iloc[0]["zip_resolution_method"] == "source_zip_field"
+
+
+def test_maps_zip_recovery_ignores_unstructured_five_digit_text() -> None:
+    candidate = maps_candidates().iloc[[0]].copy()
+    candidate["zip"] = pd.NA
+    candidate["address"] = "Suite 12345, no city or state suffix"
+    recovered = recover_missing_maps_zip(candidate)
+    assert pd.isna(recovered.iloc[0]["zip"])
+    assert recovered.iloc[0]["zip_resolution_method"] == "unresolved"
 
 
 def test_business_listings_index_uses_explicit_inclusion_columns() -> None:

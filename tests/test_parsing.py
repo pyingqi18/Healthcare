@@ -44,6 +44,9 @@ def test_parse_maps_payload_preserves_business_fields_and_provenance() -> None:
                                 "phone": "+1 555 0100",
                                 "domain": "example.com",
                                 "url": "https://example.com",
+                                "business_status": "open",
+                                "is_closed": False,
+                                "is_temporarily_closed": False,
                                 "rating": {"value": 4.5, "votes_count": 20},
                             }
                         ],
@@ -78,6 +81,9 @@ def test_parse_maps_payload_preserves_business_fields_and_provenance() -> None:
     assert record["url"] == "https://example.com"
     assert record["place_id"] == "place-123"
     assert record["cid"] == "cid-123"
+    assert record["business_status"] == "open"
+    assert record["is_closed"] is False
+    assert record["is_temporarily_closed"] is False
 
 
 def test_parse_local_finder_payload_preserves_available_fields() -> None:

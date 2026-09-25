@@ -1,0 +1,33 @@
+{
+  "analysis_status": "shared_domain_profile_eligibility_audit_complete",
+  "api_requests_submitted": 0,
+  "shared_domain_review_units": 20,
+  "shared_domain_profiles_reviewed": 49,
+  "include_dental_provider": 34,
+  "exclude_non_dentist_category": 15,
+  "automatic_profile_or_location_merges": 0,
+  "regression_balltree_modified": false,
+  "decision_boundary": "Every exact profile and address was reviewed separately. Shared-domain membership was used only to organize evidence navigation.",
+  "frozen_review_version": "20260924_v8",
+  "earlier_verified_decisions": 163,
+  "verified_decisions_after_shared_domain_audit": 212,
+  "remaining_review_profiles": 238,
+  "original_files_retained": true,
+  "original_zip_required_for_future_review": false,
+  "review_files": [
+    "shared_domain_profile_audit.csv",
+    "source_inputs/external_evidence_audit_summary.json",
+    "source_inputs/external_evidence_audit_units.csv",
+    "source_inputs/external_evidence_domains.csv",
+    "source_inputs/external_evidence_profiles.csv",
+    "source_inputs/profile_eligibility_review_groups_v8.csv",
+    "source_inputs/profile_eligibility_review_prepare_summary_v8.json",
+    "source_inputs/profile_eligibility_review_rows_v8.csv",
+    "source_inputs/shared_domain_profile_decisions.csv",
+    "source_inputs/verified_decisions_before_shared_domain_audit.csv",
+    "verified_decisions_after_shared_domain_audit.csv"
+  ],
+  "freeze_archive": "archive/profile_eligibility_review/20260924_v8/profile_eligibility_review_freeze_20260924_v8.zip",
+  "freeze_archive_sha256": "be94b849a91fcc4720cb99310daf48cac2fbc25ae89423acb3cc2d6faf27abc2",
+  "archive_manifest_sha256": "6d8ff2f9e5b46e93d79087dcac6d33bde448048abb2a54f0855ba11ac11157ea"
+}

@@ -1,0 +1,18 @@
+{
+  "analysis_status": "original_profile_eligibility_review_baseline_frozen",
+  "api_requests_submitted": 0,
+  "initial_46a_blank_pending_profiles": 583,
+  "prior_decision_reuse_resolved_profiles": 13,
+  "corrected_46a_blank_pending_profiles": 570,
+  "frozen_category_exclusions_resolved_profiles": 120,
+  "canonical_manual_review_profiles": 450,
+  "canonical_manual_review_profiles_with_decision": 0,
+  "canonical_review_blocks": 410,
+  "automatic_profile_or_location_merges": 0,
+  "regression_balltree_modified": false,
+  "canonical_review_file": "02_canonical_manual_review_rows_450_blank.csv",
+  "interpretation": "The 450-row file is the untouched manual-review baseline. Later v8 and v9 files are progress checkpoints with 163 and 212 prefilled decisions.",
+  "freeze_archive": "archive/profile_eligibility_review/original_manual_review_20260924/original_profile_review_450_freeze.zip",
+  "freeze_archive_sha256": "da9c0a49c4c24c0c11be0067f22079fd271adf60c4a657cc77142c00e93220b0",
+  "archive_manifest_sha256": "7bb74a2449e34016586a50d810bdf992e85807fe2a356c1bd3d3643db4ac92f9"
+}

@@ -1,0 +1,18 @@
+{
+  "analysis_status": "cross_source_profile_review_prepared_not_final",
+  "api_requests_submitted": 0,
+  "source_profile_rows": 33238,
+  "exact_google_profiles": 29984,
+  "exact_profile_duplicates_removed": 3254,
+  "profiles_by_preliminary_status": {
+    "include_dental_provider": 29333,
+    "pending_manual_review": 583,
+    "exclude_non_dentist_category": 68
+  },
+  "manual_profile_decisions_required": 583,
+  "validated_legacy_carry_forward_locations": 127,
+  "legacy_outcome_profile_lineage_rows": 130,
+  "automatic_physical_location_merges": 0,
+  "regression_balltree_modified": false,
+  "next_required_action": "Complete the consolidated profile decision file, then rerun this stage to build scalable physical-location review blocks."
+}
