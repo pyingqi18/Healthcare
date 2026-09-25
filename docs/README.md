@@ -8,6 +8,7 @@
 6. `search_scope_revision.md`解释Malone和Syracuse多抓问题，以及全市场重抓怎么减少无效候选。
 7. `spatial_distance_design_status.md`记录空间身份分支和距离方法目前处于什么状态。
 8. `spatial_method_registry.md`把所有距离方法放在同一张登记表里。
+9. `stage_46_profile_eligibility_checkpoint.md`冻结阶段46a至46j的资格审核进度、文件哈希、缺失代码包边界和下一步。
 
 `spatial_methods/`文件
 
