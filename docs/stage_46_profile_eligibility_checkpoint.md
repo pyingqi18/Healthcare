@@ -4,7 +4,7 @@
 
 This checkpoint records the verified state reached after stages 46a through 46j. The repository base before this checkpoint was tag `v0.4.0`, commit `9c6ade4`, which ended at stage 45.
 
-The temporary stage 46 code packages generated in the earlier work session were not committed and are not available in the persistent file set. This checkpoint therefore freezes the verified human decisions and provenance facts that can be reproduced from retained files. It does not claim that the missing temporary ZIP packages have been restored.
+Tag `v0.4.1` froze the verified human decisions before the temporary stage 46 code packages had been restored. Commit `c375d1c` subsequently added the retained stages `46a` through `46j`, their modules, tests, and frozen audit inputs to `main`. The tag remains a historical checkpoint. The current branch can reproduce the stage 46 preparation and application logic from versioned code.
 
 ## Stage notes
 
@@ -36,6 +36,12 @@ The remaining decision table contains 199 unique profiles. A verified partial pa
 
 This stage submitted zero API requests, performed zero automatic profile or location merges, and made no change to spatial exposures, the regression BallTree, or regression results.
 
+### Note 46l: frozen remaining-profile completion
+
+The user ran stage `46l` against the frozen 199-row checkpoint. The completed output contains 76 `include_dental_provider` decisions and 123 `exclude_non_dentist_category` decisions. All five review fields are complete, profile keys are unique, the profile set matches the prepared 199-row queue, and all non-decision fields remain unchanged. The completion summary reports 85 decisions before the run, 114 new decisions, 199 decisions after the run, and zero unresolved rows.
+
+The completed CSV SHA256 is `30de341904293a81831db70ed6b23db500e276ced416633fc3d99ba0e10a9745`. The final-summary JSON SHA256 is `3d0027401d0bd845923d528cb99ad8d1c475c448e8ece3cb5f889b0c6cfa7e62`. These are user-generated interim outputs and are not committed to Git.
+
 ## Versioned decision files
 
 `config/profile_eligibility_verified_decisions_20260925.csv` is the complete 251-row cumulative decision set through Note 46i.
@@ -46,8 +52,8 @@ The raw 450-row all-blank review table remains the lineage baseline. It must not
 
 ## Exact continuation point
 
-1. Review only the 134 rows with blank `manual_decision` in the partial file.
-2. Do not revisit the 251 verified upstream decisions or the 65 completed remaining-profile decisions without recording a correction and evidence.
-3. Preserve all 199 profile keys and all non-decision columns.
-4. Run `python -m pytest tests/test_profile_eligibility_checkpoint.py -q` after every decision batch.
-5. When all 199 rows are complete, restore or reimplement the missing stage 46 completion application before building physical locations or the final panel. Do not treat this checkpoint as a completed 450-profile adjudication.
+1. Keep the source checkpoint immutable and retain the completed 199-row CSV under the stage output directory.
+2. Run the stage 46 unit tests before applying the completed file.
+3. Run `46j_complete_remaining_profile_eligibility.py --decisions` with the completed 199-row CSV.
+4. Confirm that the apply summary reports 450 verified decisions and zero unresolved rows.
+5. Do not build physical locations or the final panel before the 46j application gate succeeds.

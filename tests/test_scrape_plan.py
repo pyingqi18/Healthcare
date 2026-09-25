@@ -66,6 +66,7 @@ def test_keyword_supplements_use_single_queries() -> None:
     assert keyword_rows["keywords"].str.contains(r"\+").sum() == 0
     assert keyword_rows.groupby("phase_id")["planned_tasks"].first().to_dict() == {
         "maps_core_keyword_supplement": 2,
+        "maps_residual_singleton_redesign": 5,
         "maps_specialist_keyword_supplement": 5,
     }
 

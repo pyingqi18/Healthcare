@@ -168,4 +168,4 @@
    默认输出位置为`outputs/legacy_reproduction/corrected_v1/report`。其中`legacy_regression_report.md`是报告入口，`figures`保存图片，`tables`保存报告引用的精确数值。缺少某个可选回归结果时，程序会在metadata和报告末尾列出文件，不会用其他模型结果代替。
 
 9. 当前抓取恢复入口
-   抓取线已经冻结45a主发现benchmark。46a至46c将跨来源profile去重、冻结规则排除、人工资格triage和review block分开处理。第三版46c保留450条待审profile，并冻结为410个决定块，其中27个块具有同类别组共享domain证据，383个为单例。46d生成本地HTML审核页面；46e至46g完成外部证据队列、共享domain逐profile审核和原始450条空白基线冻结。当前第9版已有212条决定，46h把剩余238条单例按官网页面具体程度排序，先输出39条具体官网页面批次。完整命令和边界说明见`scripts/scrape/README.md`第55至62节。
+   抓取线已经冻结45a主发现benchmark。46a至46c将跨来源profile去重、冻结规则排除、人工资格triage和review block分开处理。第三版46c保留450条待审profile，并冻结为410个决定块，其中27个块具有同类别组共享domain证据，383个为单例。46d生成本地HTML审核页面；46e至46g完成外部证据队列、共享domain逐profile审核和原始450条空白基线冻结。46h至46l已经完成剩余资格审核，用户本地生成的199条决定包含76条纳入、123条排除和0条未决。下一步是用46j应用该文件并生成450条verified freeze。完整命令和边界说明见`scripts/scrape/README.md`第63至66节。

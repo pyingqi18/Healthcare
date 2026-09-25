@@ -25,6 +25,7 @@
    20为109个实体地点规划评论抓取。21提交付费任务，22下载原始JSON，23进行完整性审计，24解析评论。
    109份原始JSON已全部下载。81个地点返回14310条评论，28个地点本次观测到零条评论。
    14310个review_id全部存在且唯一，评论时间和评分全部有效，没有需要增加抓取深度的任务。
+   上述口径只属于Malone与Syracuse历史修复批次。full_rebuild保留Google outcome profile与physical competition location的区别，因此不能直接复用“一地点一项评论任务”。正式全市场评论manifest必须按eligible outcome profile生成任务，并单独记录depth达到4490上限仍无法覆盖reported votes的profile。
 
 7. 文件位置
    任务日志和原始JSON保存在data/raw/rescrape_malone_syracuse_20260907。
@@ -938,3 +939,48 @@
     ```
 
     应用阶段要求199条完整覆盖、身份字段不变、决定值合法且五个审核字段无空白；通过后输出450条最终verified决定。脚本不根据`Medical clinic`自动排除社区医疗中心，因为机构提供牙科不等于当前地址提供牙科，反过来也不能仅凭通用医疗类别判定没有牙科。
+
+65. 剩余决定批次安全合并
+    46k读取当前199条检查点和同结构的人工审核批次。它锁定全部非决定字段，保留检查点中已有的65条决定，只增加批次中新完成的记录。全空模板不会清除既有进度。任何不完整的五字段决定、profile集合变化、身份或证据入口变化、以及与已完成决定不一致的内容都会停止运行。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_completion.py \
+      tests/test_profile_eligibility_checkpoint.py -q
+
+    python scripts/scrape/46k_merge_remaining_profile_decisions.py \
+      --checkpoint config/profile_eligibility_remaining_decisions_20260925_partial.csv \
+      --batch path/to/reviewed_batch.csv \
+      --output path/to/updated_checkpoint.csv \
+      --summary-output path/to/updated_checkpoint_summary.json
+    ```
+
+    只有明确记录的纠错批次才允许增加`--allow-corrections`。普通新增审核不得使用该参数。46k不作自动资格判断、不调用API、不合并profile或地点，也不修改回归BallTree。
+
+66. 冻结的199条剩余决定一次性完成
+    46l只接受已经包含85条决定、114条空白的冻结199行检查点。程序逐条核对114个completion sequence与profile key，不允许把决定应用到重新排序、重新生成或身份变化的队列。它保留原有85条决定并写出新的完整副本，不覆盖检查点。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_completion.py \
+      tests/test_profile_eligibility_priority_audit.py \
+      tests/test_profile_eligibility_audit_freeze.py \
+      tests/test_profile_eligibility_final_completion.py -q
+
+    python scripts/scrape/46l_complete_all_remaining_profile_eligibility.py \
+      --checkpoint config/profile_eligibility_remaining_decisions_20260925_partial.csv \
+      --output data/interim/full_market_plan_v2/profile_eligibility_completion/profile_eligibility_remaining_decisions_completed.csv \
+      --summary-output data/interim/full_market_plan_v2/profile_eligibility_completion/profile_eligibility_completion_final_summary.json \
+      --overwrite
+    ```
+
+    用户本地输出已经核对为199条完整决定，其中76条纳入、123条排除、0条未决。下一步必须使用46j的应用入口生成450条最终verified freeze：
+
+    ```bash
+    python scripts/scrape/46j_complete_remaining_profile_eligibility.py \
+      --run-name full_market_plan_v2 \
+      --decisions data/interim/full_market_plan_v2/profile_eligibility_completion/profile_eligibility_remaining_decisions_completed.csv \
+      --overwrite
+    ```
+
+    46l和46j均不提交API、不合并profile或物理地点，也不修改回归BallTree。199条剩余决定数量不是最终诊所数。

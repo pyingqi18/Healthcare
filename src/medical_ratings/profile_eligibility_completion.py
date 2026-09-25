@@ -25,6 +25,128 @@ FINAL_REVIEW_COLUMNS = [
 ]
 
 
+def _validate_decision_states(frame: pd.DataFrame, label: str) -> pd.Series:
+    """Return decided-row flags after validating complete or fully blank states."""
+
+    invalid_decisions = sorted(
+        set(frame.loc[frame["manual_decision"].ne(""), "manual_decision"])
+        - ALLOWED_DECISIONS
+    )
+    if invalid_decisions:
+        raise ValueError(f"{label} contains invalid decisions: {invalid_decisions}")
+    field_filled = frame[FINAL_REVIEW_COLUMNS].ne("")
+    fully_blank = ~field_filled.any(axis=1)
+    fully_complete = field_filled.all(axis=1)
+    incomplete = ~(fully_blank | fully_complete)
+    if incomplete.any():
+        keys = frame.loc[incomplete, "profile_key"].tolist()
+        raise ValueError(
+            f"{label} contains incomplete decision fields for profiles: {keys[:10]}"
+        )
+    return fully_complete
+
+
+def merge_remaining_decision_batch(
+    checkpoint_decisions: pd.DataFrame,
+    incoming_decisions: pd.DataFrame,
+    *,
+    allow_corrections: bool = False,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Merge a partial human-review batch without erasing prior decisions."""
+
+    required = {"profile_key"} | set(FINAL_REVIEW_COLUMNS)
+    _require(checkpoint_decisions, required, "checkpoint decisions")
+    _require(incoming_decisions, required, "incoming decisions")
+    checkpoint = _clean(checkpoint_decisions)
+    incoming = _clean(incoming_decisions)
+    if checkpoint["profile_key"].duplicated().any():
+        raise ValueError("Checkpoint decisions contain duplicate profile keys")
+    if incoming["profile_key"].duplicated().any():
+        raise ValueError("Incoming decisions contain duplicate profile keys")
+    if set(checkpoint.columns) != set(incoming.columns):
+        missing = sorted(set(checkpoint.columns) - set(incoming.columns))
+        extra = sorted(set(incoming.columns) - set(checkpoint.columns))
+        raise ValueError(
+            "Incoming decision columns differ from the checkpoint; "
+            f"missing={missing}, extra={extra}"
+        )
+    if set(checkpoint["profile_key"]) != set(incoming["profile_key"]):
+        missing = sorted(set(checkpoint["profile_key"]) - set(incoming["profile_key"]))
+        extra = sorted(set(incoming["profile_key"]) - set(checkpoint["profile_key"]))
+        raise ValueError(
+            "Incoming decisions do not exactly cover the checkpoint; "
+            f"missing={missing[:10]}, extra={extra[:10]}"
+        )
+
+    incoming = incoming.set_index("profile_key").reindex(checkpoint["profile_key"])
+    checkpoint = checkpoint.set_index("profile_key")
+    immutable_columns = [
+        column
+        for column in checkpoint.columns
+        if column not in FINAL_REVIEW_COLUMNS
+    ]
+    if not checkpoint[immutable_columns].equals(incoming[immutable_columns]):
+        changed = (
+            checkpoint[immutable_columns].ne(incoming[immutable_columns]).any(axis=1)
+        )
+        keys = checkpoint.index[changed].tolist()
+        raise ValueError(
+            "Incoming non-decision fields differ from the checkpoint for profiles: "
+            f"{keys[:10]}"
+        )
+
+    checkpoint_decided = _validate_decision_states(
+        checkpoint.reset_index(), "checkpoint decisions"
+    )
+    incoming_decided = _validate_decision_states(
+        incoming.reset_index(), "incoming decisions"
+    )
+    checkpoint_decided.index = checkpoint.index
+    incoming_decided.index = incoming.index
+
+    merged = checkpoint.copy()
+    new_decisions = 0
+    repeated_decisions = 0
+    corrected_decisions = 0
+    conflicts: list[str] = []
+    for profile_key in merged.index[incoming_decided]:
+        incoming_values = incoming.loc[profile_key, FINAL_REVIEW_COLUMNS]
+        if not checkpoint_decided.loc[profile_key]:
+            merged.loc[profile_key, FINAL_REVIEW_COLUMNS] = incoming_values
+            new_decisions += 1
+            continue
+        checkpoint_values = checkpoint.loc[profile_key, FINAL_REVIEW_COLUMNS]
+        if checkpoint_values.equals(incoming_values):
+            repeated_decisions += 1
+            continue
+        if allow_corrections:
+            merged.loc[profile_key, FINAL_REVIEW_COLUMNS] = incoming_values
+            corrected_decisions += 1
+        else:
+            conflicts.append(profile_key)
+    if conflicts:
+        raise ValueError(
+            "Incoming decisions conflict with completed checkpoint rows: "
+            f"{conflicts[:10]}. Use allow_corrections only for documented corrections."
+        )
+
+    merged = merged.reset_index()[checkpoint_decisions.columns]
+    decided_after = merged["manual_decision"].ne("")
+    summary = {
+        "analysis_status": "remaining_profile_decision_batch_merged",
+        "api_requests_submitted": 0,
+        "checkpoint_profiles": int(len(merged)),
+        "decided_before": int(checkpoint_decided.sum()),
+        "new_decisions_added": int(new_decisions),
+        "repeated_decisions_unchanged": int(repeated_decisions),
+        "documented_corrections_applied": int(corrected_decisions),
+        "decided_after": int(decided_after.sum()),
+        "remaining_unresolved": int((~decided_after).sum()),
+        "automatic_final_decisions_applied": 0,
+    }
+    return merged, summary
+
+
 def _clean(frame: pd.DataFrame) -> pd.DataFrame:
     result = frame.copy()
     for column in result.columns:

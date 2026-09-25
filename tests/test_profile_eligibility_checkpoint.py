@@ -45,9 +45,9 @@ def test_remaining_checkpoint_has_exact_partial_coverage() -> None:
     assert remaining["profile_key"].nunique() == 199
     decisions = _clean(remaining["manual_decision"])
     assert decisions.value_counts().to_dict() == {
-        "": 134,
-        "exclude_non_dentist_category": 61,
-        "include_dental_provider": 4,
+        "": 114,
+        "exclude_non_dentist_category": 72,
+        "include_dental_provider": 13,
     }
 
 

@@ -5,6 +5,7 @@ import pytest
 
 from medical_ratings.profile_eligibility_completion import (
     apply_remaining_completion,
+    merge_remaining_decision_batch,
     prepare_remaining_completion,
 )
 
@@ -81,3 +82,63 @@ def test_apply_remaining_completion_rejects_blank_decision() -> None:
     prepared, _, _ = prepare_remaining_completion(_remaining(), _verified())
     with pytest.raises(ValueError, match="invalid values|incomplete"):
         apply_remaining_completion(_remaining(), prepared, prepared, _verified())
+
+
+def test_merge_remaining_decision_batch_preserves_checkpoint_progress() -> None:
+    prepared, _, _ = prepare_remaining_completion(_remaining(), _verified())
+    checkpoint = prepared.copy()
+    checkpoint.loc[0, "manual_decision"] = "include_dental_provider"
+    checkpoint.loc[0, "decision_evidence"] = "official dental service page"
+    checkpoint.loc[0, "evidence_url"] = "https://clinic.example/dental"
+    checkpoint.loc[0, "reviewed_by"] = "reviewer"
+    checkpoint.loc[0, "reviewed_on"] = "2026-09-25"
+
+    merged, summary = merge_remaining_decision_batch(checkpoint, prepared)
+
+    assert merged.loc[0, "manual_decision"] == "include_dental_provider"
+    assert summary["decided_before"] == 1
+    assert summary["new_decisions_added"] == 0
+    assert summary["remaining_unresolved"] == 1
+
+
+def test_merge_remaining_decision_batch_adds_new_complete_decision() -> None:
+    prepared, _, _ = prepare_remaining_completion(_remaining(), _verified())
+    batch = prepared.copy()
+    batch.loc[1, "manual_decision"] = "exclude_non_dentist_category"
+    batch.loc[1, "decision_evidence"] = "exact profile is a pet groomer"
+    batch.loc[1, "evidence_url"] = "https://www.google.com/maps?cid=2"
+    batch.loc[1, "reviewed_by"] = "reviewer"
+    batch.loc[1, "reviewed_on"] = "2026-09-25"
+
+    merged, summary = merge_remaining_decision_batch(prepared, batch)
+
+    assert merged.loc[1, "manual_decision"] == "exclude_non_dentist_category"
+    assert summary["new_decisions_added"] == 1
+    assert summary["decided_after"] == 1
+
+
+def test_merge_remaining_decision_batch_rejects_silent_conflict() -> None:
+    prepared, _, _ = prepare_remaining_completion(_remaining(), _verified())
+    checkpoint = prepared.copy()
+    batch = prepared.copy()
+    for frame, decision in [
+        (checkpoint, "include_dental_provider"),
+        (batch, "exclude_non_dentist_category"),
+    ]:
+        frame.loc[0, "manual_decision"] = decision
+        frame.loc[0, "decision_evidence"] = decision
+        frame.loc[0, "evidence_url"] = "https://evidence.example"
+        frame.loc[0, "reviewed_by"] = "reviewer"
+        frame.loc[0, "reviewed_on"] = "2026-09-25"
+
+    with pytest.raises(ValueError, match="conflict"):
+        merge_remaining_decision_batch(checkpoint, batch)
+
+
+def test_merge_remaining_decision_batch_rejects_identity_change() -> None:
+    prepared, _, _ = prepare_remaining_completion(_remaining(), _verified())
+    batch = prepared.copy()
+    batch.loc[0, "address"] = "changed address"
+
+    with pytest.raises(ValueError, match="non-decision fields"):
+        merge_remaining_decision_batch(prepared, batch)

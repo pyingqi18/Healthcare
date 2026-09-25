@@ -84,6 +84,7 @@ python -m pytest -m "not real_data" -q
 * `test_profile_eligibility_audit_freeze.py`：验证46f逐profile保存共享domain块内不同决定、拒绝身份字段漂移或重复profile，并保持零自动合并。
 * `test_profile_eligibility_original_freeze.py`：验证583条初始空白队列、570条修正空白队列和450条正式空白复核队列的嵌套关系，并拒绝把已有决定的进度快照冒充原始版。
 * `test_profile_eligibility_singleton_audit.py`：验证46h只处理第9版剩余单例，按官网页面具体程度排序且不自动填写最终决定，并拒绝仍含共享块或重复profile的输入。
+* `test_profile_eligibility_final_completion.py`：验证46l只在冻结的199行、85条已决定和114条指定profile identity上补齐决定，保留已有审核字段，并拒绝身份漂移或错误检查点。
 * `test_manual_candidate_review.py`：验证人工候选决策保留记录、覆盖全部待决候选并阻止身份漂移。
 * `test_panel.py`：验证年度面板构建、历史评论累计、进入年份缺失处理和混合日期格式保留。
 * `test_parse_business_info_results.py`：验证已下载Business Info文件的任务标签、身份和解析结果。

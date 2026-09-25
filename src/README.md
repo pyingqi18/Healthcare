@@ -47,6 +47,7 @@
 5. 实体地点与评论
    duplicate_candidate_audit.py、physical_location_groups.py、location_resolution_audit.py和final_location_resolution.py处理资料到实体地点的归并。
    review_collection.py、review_result_audit.py和review_result_parsing.py处理评论任务及结果。
+   当前review_collection.py沿用Malone与Syracuse修复批次的“一物理地点一项任务”口径，默认最大depth为2000。该口径不能直接用于full_rebuild：正式评论manifest必须改为每个eligible outcome profile一项任务，保留同一competition location下不同Google profile的独立评分历史，并把4490上限与超过上限的左截断状态写入审计。完成此修改前不得提交full_rebuild评论任务。
 
 6. 数据替换
    replacement_audit.py核验替换边界。replacement_build.py生成corrected_v1诊所和评论表，不覆盖legacy_v1。
@@ -56,6 +57,9 @@
 
 8. 修改规则
    模块函数不应依赖notebook全局状态。新增逻辑需要同步增加tests中的小样本测试。
+
+9. 阶段46最终剩余决定
+   profile_eligibility_final_completion.py只接受冻结的199行检查点、85条既有决定和114条指定profile identity。它补齐114条决定并保留既有85条，不调用API、不生成研究原始数据、不合并profile或地点。输出仍需交给46j应用，不能直接当作450条最终资格冻结。
 ### `identity_rule_adjudication.py`
 
 读取31a生成的候选身份表和冻结的逐条人工决定，检查reference key覆盖、标题身份是否漂移以及决定值是否合法。它分别输出确认的历史地点匹配和应从当前参考分母排除的旧记录，并报告候选规则的样本内正预测值。该模块不会把放宽规则推广到其他记录，也不会合并rating profile。
