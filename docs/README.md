@@ -8,7 +8,7 @@
 6. `search_scope_revision.md`解释Malone和Syracuse多抓问题，以及全市场重抓怎么减少无效候选。
 7. `spatial_distance_design_status.md`记录空间身份分支和距离方法目前处于什么状态。
 8. `spatial_method_registry.md`把所有距离方法放在同一张登记表里。
-9. `stage_46_profile_eligibility_checkpoint.md`冻结阶段46a至46l的资格审核进度、文件哈希、代码恢复边界和下一步。当前199条剩余决定已完成，下一步是运行46j应用门生成450条verified freeze。
+9. `stage_46_profile_eligibility_checkpoint.md`冻结阶段46a至46o的资格与地点处理进度、文件哈希、代码恢复边界和下一步。46o以保守主口径和地址合并敏感性口径一次完成地点冻结，不再要求576块人工复核。
 
 `spatial_methods/`文件
 
@@ -22,3 +22,5 @@
 8. `08_literature_motivated_alternatives.md`比较道路时间、patient-flow market、校准衰减和E2SFCA等未来方法。
 
 当前已经冻结的主候选是固定2-mile。圆环、0.5-mile和市场P25/P50属于预定稳健性分析；gravity、最近entrant和第五竞争者距离属于探索性分析。具体机器可读设置以`config/final_analysis.yaml`为准。
+
+full rebuild评论采集的当前运行顺序、输出目录和停止条件见根目录`RUN_FULL_REBUILD_REVIEWS.md`。评论任务单位是eligible outcome profile，competition location仅用于空间exposure连接。

@@ -984,3 +984,107 @@
     ```
 
     46l和46j均不提交API、不合并profile或物理地点，也不修改回归BallTree。199条剩余决定数量不是最终诊所数。
+
+67. 应用最终450条资格决定并准备物理地点审核
+    46m读取Git中冻结的251条verified基线和用户本地生成的199条`remaining_profile_verified_additions.csv`。它要求两组profile key完全不重叠、九个决定字段完整、合计正好450条，并固定核对217条纳入、233条排除。随后把决定注入原46a模板，调用既有46a审核准备逻辑生成candidate pairs、review blocks、triage和block profiles。
+
+    ```bash
+    python -m pytest \
+      tests/test_profile_eligibility_final_application.py \
+      tests/test_cross_source_profile_resolution.py -q
+
+    python scripts/scrape/46m_apply_final_profile_eligibility.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    输出目录为`data/interim/full_market_plan_v2/profile_eligibility_final_application/`。脚本不调用API，不自动合并profile或物理地点，不生成最终competition location ID，也不修改回归BallTree。用户必须逐块完成物理地点审核后才能进入panel和主回归。
+
+68. 物理地点政策审核准备
+    用户本地46m输出确认5679个多profile临时块，其中4031个为`routine_shared_identity`、192个为`focused_review`、1456个为`complex_review`。直接无结构地逐块审核会浪费时间，也会把组织级共享电话或domain与地点身份混在一起。46n冻结一个透明的建议层：routine块建议保留为一个物理地点，1072个多normalized base address的complex块建议先按基址拆分，其余576块进入集中人工审核。
+
+    ```bash
+    python -m pytest \
+      tests/test_physical_location_policy_review.py \
+      tests/test_profile_eligibility_final_application.py \
+      tests/test_cross_source_profile_resolution.py -q
+
+    python scripts/scrape/46n_prepare_physical_location_policy_review.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    输出目录为`data/interim/full_market_plan_v2/physical_location_policy_review/`。所有`manual_policy_decision`、custom partition、证据和审核人字段保持空白。46n不调用API、不应用建议、不生成final competition location ID，也不修改回归BallTree。
+
+69. 一次性冻结物理competition location
+    46o结束额外人工地点审核。主口径接受4031个routine shared identity块，把1072个多基址complex块按normalized base address拆分，并对剩余576个证据歧义同址块保留每个exact Google profile为独立competition location。地址合并敏感性口径仅把这576个块各自视为一个地点。这样把无法从现有字段识别的误并风险显式放入sensitivity，而不再要求逐店人工复核。
+
+    ```bash
+    python -m pytest \
+      tests/test_final_physical_location_freeze.py \
+      tests/test_physical_location_policy_review.py \
+      tests/test_cross_source_profile_resolution.py -q
+
+    python scripts/scrape/46o_freeze_physical_competition_locations.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    预期主口径为22299个competition location，地址合并敏感性口径为20762个；29550个Google outcome profile全部保留独立身份。输出目录为`data/interim/full_market_plan_v2/physical_location_final_freeze/`。46o不调用API、不修改评论记录或回归BallTree，remaining manual location reviews固定为0。
+
+70. 逐outcome profile规划full rebuild评论采集
+    47a读取46m的`included_outcome_profiles.csv`和46o的crosswalk，严格核对29550个eligible profile集合、profile key、CID和市场，再为每个profile生成一项Google Reviews任务。competition location只作为空间连接字段；同一location内多个Google profile不会合并评分历史。最大depth为4490，超过上限的reported votes在采集前标记潜在左截断。该步骤不提交API。
+
+    ```bash
+    python -m pytest \
+      tests/test_outcome_profile_review_collection.py \
+      tests/test_review_collection.py \
+      tests/test_submit_review_collection.py \
+      tests/test_download_review_results.py \
+      tests/test_review_result_audit.py \
+      tests/test_review_result_parsing.py -q
+
+    python scripts/scrape/47a_plan_outcome_profile_review_collection.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    输出目录为`data/interim/full_market_plan_v2/outcome_profile_review_collection/`。先检查summary中的planned tasks、capped profiles和maximum estimated cost，再使用21脚本validation-only命令取得精确付费确认文本。完整提交、下载、审计和解析命令见根目录`RUN_FULL_REBUILD_REVIEWS.md`。
+
+71. 47a市场字段合并修复
+    `included_outcome_profiles.csv`和46o crosswalk都含有`mapped_location`。47a现在在合并前显式把crosswalk身份字段改名，并逐项核对profile key、CID和市场，避免Pandas同名列后缀导致`KeyError: mapped_location`。运行命令和输出位置不变，失败的免费planning不需要清理API日志。
+
+72. 先审计旧评论复用，再生成减量付费清单
+    47b读取47a的29550条计划、46m最终纳入profile和corrected_v1诊所及评论表。只有稳定Google标识能唯一对应当前outcome profile、每条旧评论都保留同一profile级来源标识和唯一review ID、日期与评分全部有效，并且旧评论行数同时覆盖旧版与当前47a reported review count时，才自动从付费清单移除。零评论复用还要求新旧reported count都为0。店名加ZIP只进入候选表，不自动复用。该步骤不调用API，也不会修改原47a清单。
+
+    ```bash
+    python -m pytest \
+      tests/test_existing_review_reuse.py \
+      tests/test_outcome_profile_review_collection.py \
+      tests/test_submit_review_collection.py -q
+
+    python scripts/scrape/47b_audit_existing_review_reuse.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    输出目录为`data/interim/full_market_plan_v2/existing_review_reuse_audit/`。任何付费validation或submit都必须使用其中的`reduced_outcome_profile_review_manifest.csv`，不得直接提交原29550条清单。实际可复用数量和节省费用必须由用户本地输出决定。
+
+73. 修复混合schema并增强legacy评论复用
+    用户本地47b结果只安全复用68个profile、10493条评论，最大费用从233.9550美元降至232.8983美元。47b还暴露出混合schema读取问题：corrected_v1拼接legacy与replacement记录后，同一表同时包含`review_timestamp_utc`与`review_date`、`rating_value`与`rating_numeric`。只按全表第一个存在列读取会把legacy行的有效字段遗漏。
+
+    47c逐行合并日期、评分和review key。它只重新检查47b中的唯一market加title加ZIP候选，并额外要求完整标准化地址一致、电话/domain/坐标无冲突、review ID或review URL非空唯一、评论行数同时覆盖旧版与当前reported count。该步骤仍为零API请求。
+
+    ```bash
+    python -m pytest \
+      tests/test_enhanced_legacy_review_reuse.py \
+      tests/test_existing_review_reuse.py \
+      tests/test_outcome_profile_review_collection.py \
+      tests/test_submit_review_collection.py -q
+
+    python scripts/scrape/47c_enhance_legacy_review_reuse.py \
+      --run-name full_market_plan_v2 \
+      --overwrite
+    ```
+
+    输出目录为`data/interim/full_market_plan_v2/enhanced_legacy_review_reuse_audit/`。付费validation只能使用`enhanced_reduced_outcome_profile_review_manifest.csv`，真实新增复用量与费用必须由用户本地47c结果决定。

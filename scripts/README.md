@@ -168,4 +168,9 @@
    默认输出位置为`outputs/legacy_reproduction/corrected_v1/report`。其中`legacy_regression_report.md`是报告入口，`figures`保存图片，`tables`保存报告引用的精确数值。缺少某个可选回归结果时，程序会在metadata和报告末尾列出文件，不会用其他模型结果代替。
 
 9. 当前抓取恢复入口
-   抓取线已经冻结45a主发现benchmark。46a至46c将跨来源profile去重、冻结规则排除、人工资格triage和review block分开处理。第三版46c保留450条待审profile，并冻结为410个决定块，其中27个块具有同类别组共享domain证据，383个为单例。46d生成本地HTML审核页面；46e至46g完成外部证据队列、共享domain逐profile审核和原始450条空白基线冻结。46h至46l已经完成剩余资格审核，用户本地生成的199条决定包含76条纳入、123条排除和0条未决。下一步是用46j应用该文件并生成450条verified freeze。完整命令和边界说明见`scripts/scrape/README.md`第63至66节。
+   抓取线已经冻结45a主发现benchmark。46a至46c将跨来源profile去重、冻结规则排除、人工资格triage和review block分开处理。第三版46c保留450条待审profile，并冻结为410个决定块，其中27个块具有同类别组共享domain证据，383个为单例。46d生成本地HTML审核页面；46e至46g完成外部证据队列、共享domain逐profile审核和原始450条空白基线冻结。46h至46l已经完成剩余资格审核，用户本地生成的199条additions包含76条纳入、123条排除和0条未决。46m严格重建450条最终verified freeze并准备物理地点输入。46n冻结地点政策证据，46o用保守主口径和地址合并敏感性口径一次完成地点冻结，47a进入逐outcome profile评论计划，47b先审计corrected_v1可复用历史再生成减量付费清单。完整命令和边界说明见`scripts/scrape/README.md`。
+
+10. full rebuild评论入口
+   `scrape/47a_plan_outcome_profile_review_collection.py`为29550个eligible Google outcome profile生成独立评论任务计划。付费提交、下载、审计和解析继续复用21至24入口，但这些入口现在允许多个profile共享一个competition location，并按profile执行唯一性检查。完整命令见`RUN_FULL_REBUILD_REVIEWS.md`。
+
+   `scrape/47b_audit_existing_review_reuse.py`以零API请求审计旧评论可复用性。它只自动复用稳定Google身份且覆盖完整的旧历史，并输出减量manifest；名称与ZIP候选不自动从付费任务移除。

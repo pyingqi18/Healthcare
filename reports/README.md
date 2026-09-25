@@ -9,10 +9,16 @@ reports保存项目阶段记录和无法仅从代码看出的数据结论。
 5. 当前进度
 整理内容.md已记录41a至44a的完整状态审核。44a实际应用后为3525个当前参考地点、来源联合发现3398个、召回率96.40%、剩余127个，15个市场全部达到90%门槛。45a负责冻结这套发现基准并正式取消75项条件性剩余关键词任务；下一阶段仍需完成跨来源profile与物理竞争地点归并。原冻结断点见`scrape_freeze_20260919.md`。
 
-46a至46j已经完成跨来源profile准备、资格审核结构、证据队列、原始基线冻结、优先官网审核和剩余决定表生成。正式原始人工复核基线是450条空白决定和410个review block，保存在`archive/profile_eligibility_review/original_manual_review_20260924`；583条和570条文件仅保留上游修正轨迹。46i结束时累计核实251条，其中纳入141条、排除110条。46l已经在冻结的199条剩余队列上生成完整决定，结果为76条纳入、123条排除、0条未决。该用户本地输出已经通过行数、profile key、锁定字段和五个决定字段检查，但还必须由46j的`--decisions`应用入口生成450条最终verified freeze。上述数量仍不是最终诊所数；只有资格冻结应用成功并完成物理地点审核后，才能填写最终competition location和outcome profile数量。
+46a至46m覆盖跨来源profile准备、资格审核结构、证据队列、原始基线冻结、剩余决定完成以及最终资格应用。正式原始人工复核基线是450条空白决定和410个review block，保存在`archive/profile_eligibility_review/original_manual_review_20260924`。46i结束时累计核实251条，其中纳入141条、排除110条；用户本地的199条verified additions包含76条纳入、123条排除、0条未决。46m从两份冻结输入严格重建450条最终决定，预期217条纳入、233条排除，并生成物理地点审核文件。上述数量仍不是最终诊所数；只有用户本地运行46m并完成物理地点审核后，才能填写最终competition location和outcome profile数量。
+
+用户生成的46m summary确认29550条eligible Google profile、434条排除、127条legacy anchor、19560个临时地点块和5679个多profile审核块。46n只整理审核政策，不应用决定：4031块建议保留为单一物理地点，1072个多基址块建议按normalized base address拆分，576块保留集中人工审核。
+
+46o取消额外人工地点复核。主口径接受4031个routine块、按基址拆分1072个多地址块，并对576个歧义同址块保留逐profile地点，预计形成22299个competition location。敏感性口径把576个歧义块按当前块合并，预计形成20762个地点。两套口径都保留29550个独立Google outcome profile。
 
 6. Legacy回归报告
 `scripts/16_build_legacy_regression_report.py`生成的报告保存在`outputs/legacy_reproduction/corrected_v1/report`，不手工复制进reports。报告入口为`legacy_regression_report.md`，图片和精确表格分别位于同目录的`figures`和`tables`。
 
 7. Slides英文文案
 `slides_english_copy_20260925.md`依据legacy报告、历史notebook和中间结果PDF整理。它把描述性preliminary study、legacy regression comparison和未来full rebuild主回归分开，不把corrected_v1诊断结果写成最终因果结论。
+
+阶段46o真实location freeze与阶段47a逐outcome profile评论计划的核验结论记录在`整理内容.md`第109节。真实评论数量、覆盖率和年度panel结果只能在用户本地完成47a及21至24采集链后补入，不从Business Listings aggregate rating推算。

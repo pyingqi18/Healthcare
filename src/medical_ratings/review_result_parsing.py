@@ -34,6 +34,7 @@ REQUIRED_RESULT_LOG_COLUMNS = {
 ACCEPTED_COMPLETENESS_STATUSES = {
     "complete_within_reported_count",
     "empty_result",
+    "capped_at_api_limit",
 }
 DOWNLOADED_STATUSES = {"downloaded", "downloaded_empty"}
 
@@ -66,7 +67,7 @@ def prepare_parse_plan(
         raise ValueError(
             f"Expected {expected_task_count} audited tasks, found {len(audit)}"
         )
-    for column in ("task_tag", "task_id", "final_physical_location_id"):
+    for column in ("task_tag", "task_id", "clinic_key"):
         values = audit[column].astype("string").str.strip()
         if values.isna().any() or values.eq("").any():
             raise ValueError(f"Review audit contains blank {column} values")
@@ -188,6 +189,14 @@ def parse_audited_review_results(
                     "identifier_value": row["identifier_value"],
                     "requested_location": row["requested_location"],
                     "review_observation_status": "zero_reviews_observed",
+                    "outcome_profile_key": row.get("outcome_profile_key"),
+                    "competition_location_id": row.get(
+                        "competition_location_id",
+                        row["final_physical_location_id"],
+                    ),
+                    "address_merge_sensitivity_location_id": row.get(
+                        "address_merge_sensitivity_location_id"
+                    ),
                 }
             )
             continue
@@ -211,6 +220,20 @@ def parse_audited_review_results(
                         "final_physical_location_id"
                     ],
                     "clinic_key": row["clinic_key"],
+                    "outcome_profile_key": row.get(
+                        "outcome_profile_key", row["clinic_key"]
+                    ),
+                    "competition_location_id": row.get(
+                        "competition_location_id",
+                        row["final_physical_location_id"],
+                    ),
+                    "address_merge_sensitivity_location_id": row.get(
+                        "address_merge_sensitivity_location_id"
+                    ),
+                    "review_coverage_status": row["completeness_status"],
+                    "left_censored_at_api_limit": (
+                        row["completeness_status"] == "capped_at_api_limit"
+                    ),
                     "submitted_identifier_type": expected_identifier_type,
                     "submitted_identifier_value": expected_identifier_value,
                     **record,
@@ -256,6 +279,18 @@ def summarize_parsed_reviews(
         "unique_review_id": int(reviews["review_id"].nunique()),
         "unique_physical_locations_with_reviews": int(
             reviews["final_physical_location_id"].nunique()
+        ),
+        "unique_outcome_profiles_with_reviews": int(
+            reviews.get("outcome_profile_key", reviews["clinic_key"]).nunique()
+        ),
+        "left_censored_outcome_profiles": int(
+            reviews.loc[
+                reviews.get(
+                    "left_censored_at_api_limit",
+                    pd.Series(False, index=reviews.index),
+                ).fillna(False),
+                "clinic_key",
+            ].nunique()
         ),
         "review_rows_by_market": {
             str(key): int(value)

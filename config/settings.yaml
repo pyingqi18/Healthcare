@@ -21,7 +21,7 @@ dataforseo:
   review_sort_by: newest
   review_depth_minimum: 20
   review_depth_buffer: 50
-  review_depth_maximum: 2000
+  review_depth_maximum: 4490
   review_depth_multiple: 10
   endpoints:
     business_listings_live: https://api.dataforseo.com/v3/business_data/business_listings/search/live

@@ -85,6 +85,9 @@ python -m pytest -m "not real_data" -q
 * `test_profile_eligibility_original_freeze.py`：验证583条初始空白队列、570条修正空白队列和450条正式空白复核队列的嵌套关系，并拒绝把已有决定的进度快照冒充原始版。
 * `test_profile_eligibility_singleton_audit.py`：验证46h只处理第9版剩余单例，按官网页面具体程度排序且不自动填写最终决定，并拒绝仍含共享块或重复profile的输入。
 * `test_profile_eligibility_final_completion.py`：验证46l只在冻结的199行、85条已决定和114条指定profile identity上补齐决定，保留已有审核字段，并拒绝身份漂移或错误检查点。
+* `test_profile_eligibility_final_application.py`：验证46m严格合并251条基线与199条additions、拒绝不完整审核字段或身份漂移，并在不改变46a模板结构的情况下写入最终决定。
+* `test_physical_location_policy_review.py`：验证46n的5679块与15796条profile守恒、tier数量冻结、routine与多基址建议规则，以及所有最终人工字段保持空白。
+* `test_final_physical_location_freeze.py`：验证46o的routine合并、多基址拆分、歧义块保守主口径、地址合并敏感性口径、稳定地点ID和profile身份保留。
 * `test_manual_candidate_review.py`：验证人工候选决策保留记录、覆盖全部待决候选并阻止身份漂移。
 * `test_panel.py`：验证年度面板构建、历史评论累计、进入年份缺失处理和混合日期格式保留。
 * `test_parse_business_info_results.py`：验证已下载Business Info文件的任务标签、身份和解析结果。
@@ -156,3 +159,10 @@ python -m pytest \
 ## 5. Legacy回归报告测试
 
 * `test_legacy_regression_report.py`：验证报告按实际ZIP分配市场、拒绝重复clinic-year、统一不同回归输出字段，并生成完整表格、图片和metadata。
+
+## 6. Full rebuild评论采集测试
+
+* `test_outcome_profile_review_collection.py`：验证按outcome profile生成任务、允许多个profile共享competition location、应用4490上限并保留零票profile。
+  同时覆盖真实46m profile表与crosswalk都含`mapped_location`的情况，并验证市场字段漂移会停止运行。
+* `test_submit_review_collection.py`：验证profile级manifest仍支持付费确认、断点续传和identifier一致性。
+* `test_review_result_audit.py`：验证unique review ID与reported count对账，并把4490上限缺口标记为左截断。

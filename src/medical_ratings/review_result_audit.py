@@ -65,7 +65,7 @@ def prepare_submitted_tasks(
         "language_code",
     ):
         submitted[column] = _required_text(submitted, column)
-    for column in ("task_tag", "task_id", "final_physical_location_id"):
+    for column in ("task_tag", "task_id", "clinic_key"):
         if submitted[column].duplicated().any():
             raise ValueError(f"Submitted tasks contain duplicate {column} values")
 
@@ -157,11 +157,13 @@ def audit_review_payload(
     duplicate_id_count = sum(count > 1 for count in id_counts.values())
     duplicate_rows = sum(count for count in id_counts.values() if count > 1)
     item_count = len(items)
+    unique_review_count = len(id_counts)
     business_reviews_count = (
         max(reported_counts) if reported_counts else None
     )
     depth_exhausted = item_count >= planned_depth
 
+    identity_problem = item_count != len(review_ids) or duplicate_rows > 0
     if not results or item_count == 0:
         completeness_status = (
             "unexpected_empty_result"
@@ -175,12 +177,18 @@ def audit_review_payload(
             if depth_exhausted
             else "unknown_count_below_depth"
         )
-    elif business_reviews_count > item_count and depth_exhausted:
-        completeness_status = "needs_depth_followup"
-    elif business_reviews_count > item_count:
+    elif business_reviews_count > unique_review_count and depth_exhausted:
+        completeness_status = (
+            "capped_at_api_limit"
+            if planned_depth == 4490
+            else "needs_depth_followup"
+        )
+    elif business_reviews_count > unique_review_count:
         completeness_status = "short_return_below_depth"
     else:
         completeness_status = "complete_within_reported_count"
+
+    left_censored_at_api_limit = completeness_status == "capped_at_api_limit"
 
     summary = {
         "response_status": payload.get("status_code"),
@@ -192,17 +200,20 @@ def audit_review_payload(
         "unique_review_id": len(id_counts),
         "duplicate_review_id_count_within_task": duplicate_id_count,
         "duplicate_review_rows_within_task": duplicate_rows,
+        "review_identity_valid": not identity_problem,
         "business_reviews_count": business_reviews_count,
         "planned_depth": planned_depth,
         "depth_exhausted": depth_exhausted,
         "unreturned_reported_reviews": (
             None
             if business_reviews_count is None
-            else max(business_reviews_count - item_count, 0)
+            else max(business_reviews_count - unique_review_count, 0)
         ),
         "completeness_status": completeness_status,
         "needs_depth_followup": completeness_status == "needs_depth_followup",
-        "requires_manual_review": completeness_status
+        "left_censored_at_api_limit": left_censored_at_api_limit,
+        "requires_manual_review": identity_problem
+        or completeness_status
         in {
             "unexpected_empty_result",
             "short_return_below_depth",
@@ -243,8 +254,7 @@ def audit_downloaded_review_results(
             expected_location_code=int(row["location_code"]),
             planned_depth=int(row["planned_depth"]),
         )
-        audit_rows.append(
-            {
+        record = {
                 "task_tag": row["task_tag"],
                 "task_id": task_id,
                 "final_physical_location_id": row["final_physical_location_id"],
@@ -258,7 +268,14 @@ def audit_downloaded_review_results(
                 "raw_response_path": str(raw_path),
                 **task_summary,
             }
-        )
+        for optional in (
+            "outcome_profile_key",
+            "competition_location_id",
+            "address_merge_sensitivity_location_id",
+        ):
+            if optional in row:
+                record[optional] = row[optional]
+        audit_rows.append(record)
         all_review_ids.extend(review_ids)
 
     audit = pd.DataFrame.from_records(audit_rows)
@@ -320,6 +337,12 @@ def summarize_review_audit(
         "repeated_review_observations": len(review_ids) - len(id_counts),
         "tasks_needing_depth_followup": int(
             audit["needs_depth_followup"].sum()
+        ),
+        "profiles_left_censored_at_api_limit": int(
+            audit.get("left_censored_at_api_limit", pd.Series(False, index=audit.index))
+            .fillna(False)
+            .astype(bool)
+            .sum()
         ),
         "tasks_requiring_manual_review": int(
             audit["requires_manual_review"].sum()

@@ -1,4 +1,4 @@
-"""Plan one Google Reviews task per canonical physical location."""
+"""Plan Google Reviews tasks for legacy locations or frozen outcome profiles."""
 
 from __future__ import annotations
 
@@ -17,6 +17,23 @@ REQUIRED_COLUMNS = {
     "mapped_location",
     "votes_count",
     "final_location_canonical",
+}
+
+OUTCOME_PROFILE_REQUIRED_COLUMNS = {
+    "clinic_key",
+    "profile_key",
+    "cid",
+    "title",
+    "votes_count",
+}
+OUTCOME_CROSSWALK_REQUIRED_COLUMNS = {
+    "clinic_key",
+    "profile_key",
+    "cid",
+    "mapped_location",
+    "outcome_profile_included",
+    "competition_location_id",
+    "address_merge_sensitivity_location_id",
 }
 
 
@@ -45,7 +62,7 @@ def _planned_depth(
     maximum: int,
     multiple: int,
 ) -> tuple[int, str]:
-    if votes_count is None or pd.isna(votes_count):
+    if votes_count is None or pd.isna(votes_count) or _text(votes_count) == "":
         target = minimum
         source = "missing_votes_minimum"
     else:
@@ -56,6 +73,261 @@ def _planned_depth(
         source = "votes_count_plus_buffer"
     rounded = int(math.ceil(target / multiple) * multiple)
     return min(maximum, rounded), source
+
+
+def build_outcome_profile_review_manifest(
+    profiles: pd.DataFrame,
+    crosswalk: pd.DataFrame,
+    region_location_codes: Mapping[str, int],
+    *,
+    language_code: str = "en",
+    sort_by: str = "newest",
+    depth_minimum: int = 20,
+    depth_buffer: int = 50,
+    depth_maximum: int = 4490,
+    depth_multiple: int = 10,
+    standard_cost_per_ten_reviews_usd: float = 0.00075,
+    expected_outcome_profiles: int | None = 29_550,
+) -> pd.DataFrame:
+    """Build one full-rebuild task per eligible Google outcome profile.
+
+    Profile identity remains distinct from the physical competition-location
+    identity. The latter is attached only for downstream spatial joins.
+    """
+
+    missing_profiles = OUTCOME_PROFILE_REQUIRED_COLUMNS - set(profiles.columns)
+    if missing_profiles:
+        raise KeyError(
+            f"Outcome profiles are missing columns: {sorted(missing_profiles)}"
+        )
+    missing_crosswalk = OUTCOME_CROSSWALK_REQUIRED_COLUMNS - set(crosswalk.columns)
+    if missing_crosswalk:
+        raise KeyError(
+            f"Location crosswalk is missing columns: {sorted(missing_crosswalk)}"
+        )
+    if depth_minimum < 1 or depth_maximum > 4490:
+        raise ValueError("Review depth bounds must remain within 1 to 4490")
+    if depth_minimum > depth_maximum:
+        raise ValueError("Review depth minimum exceeds maximum")
+    if depth_buffer < 0 or depth_multiple < 1:
+        raise ValueError("Review depth buffer and multiple must be valid")
+    if depth_minimum % depth_multiple or depth_maximum % depth_multiple:
+        raise ValueError("Review depth bounds must be multiples of depth_multiple")
+    if standard_cost_per_ten_reviews_usd < 0:
+        raise ValueError("Review price cannot be negative")
+    if sort_by not in {"newest", "highest_rating", "lowest_rating", "relevant"}:
+        raise ValueError("Invalid review sort order")
+
+    profile_frame = profiles.copy()
+    for column in ("clinic_key", "profile_key", "cid", "place_id", "title"):
+        if column not in profile_frame:
+            profile_frame[column] = ""
+        profile_frame[column] = profile_frame[column].map(_text)
+    if profile_frame.empty:
+        raise ValueError("Outcome profile table is empty")
+    for column in ("clinic_key", "profile_key", "cid"):
+        if profile_frame[column].eq("").any():
+            raise ValueError(f"Outcome profiles contain blank {column} values")
+        if profile_frame[column].duplicated().any():
+            raise ValueError(f"Outcome profiles contain duplicate {column} values")
+
+    link = crosswalk.copy()
+    for column in OUTCOME_CROSSWALK_REQUIRED_COLUMNS:
+        link[column] = link[column].map(_text)
+    link = link.loc[link["outcome_profile_included"].map(_boolean)].copy()
+    if link.empty:
+        raise ValueError("Location crosswalk contains no eligible outcome profiles")
+    for column in ("clinic_key", "profile_key", "cid"):
+        if link[column].eq("").any():
+            raise ValueError(f"Eligible crosswalk rows contain blank {column} values")
+        if link[column].duplicated().any():
+            raise ValueError(f"Eligible crosswalk rows contain duplicate {column} values")
+    if expected_outcome_profiles is not None:
+        if len(profile_frame) != expected_outcome_profiles or len(link) != expected_outcome_profiles:
+            raise ValueError(
+                "Outcome profile count changed: "
+                f"profiles={len(profile_frame)}, crosswalk={len(link)}, "
+                f"expected={expected_outcome_profiles}"
+            )
+    if set(profile_frame["clinic_key"]) != set(link["clinic_key"]):
+        missing = sorted(set(link["clinic_key"]) - set(profile_frame["clinic_key"]))
+        extra = sorted(set(profile_frame["clinic_key"]) - set(link["clinic_key"]))
+        raise ValueError(
+            "Outcome profile table and eligible crosswalk differ; "
+            f"missing={missing[:5]}, extra={extra[:5]}"
+        )
+
+    link_columns = [
+        "clinic_key",
+        "profile_key",
+        "cid",
+        "mapped_location",
+        "competition_location_id",
+        "address_merge_sensitivity_location_id",
+    ]
+    link_for_join = link[link_columns].rename(
+        columns={
+            "profile_key": "crosswalk_profile_key",
+            "cid": "crosswalk_cid",
+            "mapped_location": "crosswalk_mapped_location",
+        }
+    )
+    joined = profile_frame.merge(
+        link_for_join,
+        on="clinic_key",
+        how="left",
+        validate="one_to_one",
+    )
+    for field in ("profile_key", "cid"):
+        left = joined[field].map(_text)
+        right = joined[f"crosswalk_{field}"].map(_text)
+        if not left.eq(right).all():
+            raise ValueError(f"Outcome profile {field} differs from the crosswalk")
+        joined[field] = left
+
+    market_column = next(
+        (
+            column
+            for column in ("requested_location", "mapped_location")
+            if column in joined
+        ),
+        None,
+    )
+    if market_column is not None:
+        source_market = joined[market_column].map(_text)
+        comparable = source_market.ne("")
+        if comparable.any() and not source_market.loc[comparable].eq(
+            joined.loc[comparable, "crosswalk_mapped_location"]
+        ).all():
+            raise ValueError("Outcome profile market differs from the location crosswalk")
+    unknown_markets = sorted(
+        set(joined["crosswalk_mapped_location"]) - set(region_location_codes)
+    )
+    if unknown_markets:
+        raise ValueError(f"Missing region location codes: {unknown_markets}")
+
+    records: list[dict[str, Any]] = []
+    for row in joined.to_dict(orient="records"):
+        cid = _text(row["cid"])
+        place_id = _text(row.get("place_id"))
+        identifier_type = "place_id" if place_id else "cid"
+        identifier_value = place_id or cid
+        depth, depth_source = _planned_depth(
+            row.get("votes_count"),
+            minimum=depth_minimum,
+            buffer=depth_buffer,
+            maximum=depth_maximum,
+            multiple=depth_multiple,
+        )
+        votes = pd.to_numeric(pd.Series([row.get("votes_count")]), errors="coerce").iloc[0]
+        capped = bool(
+            not pd.isna(votes)
+            and math.ceil(float(votes)) + depth_buffer > depth_maximum
+        )
+        if pd.isna(votes):
+            pre_status = "missing_reported_votes_planned"
+        elif float(votes) == 0:
+            pre_status = "reported_zero_requires_verification"
+        elif capped:
+            pre_status = "planned_api_limit_left_censoring_possible"
+        else:
+            pre_status = "planned_within_reported_count"
+        market = _text(row["crosswalk_mapped_location"])
+        competition_location_id = _text(row["competition_location_id"])
+        records.append(
+            {
+                "task_tag": f"full-rebuild-reviews:cid:{cid}",
+                "outcome_profile_key": _text(row["profile_key"]),
+                "competition_location_id": competition_location_id,
+                "address_merge_sensitivity_location_id": _text(
+                    row["address_merge_sensitivity_location_id"]
+                ),
+                # Compatibility alias used by the existing submit/download/audit code.
+                "final_physical_location_id": competition_location_id,
+                "clinic_key": _text(row["clinic_key"]),
+                "cid": cid,
+                "place_id": place_id or None,
+                "title": row.get("title"),
+                "requested_location": market,
+                "identifier_type": identifier_type,
+                "identifier_value": identifier_value,
+                "location_code": int(region_location_codes[market]),
+                "language_code": language_code,
+                "sort_by": sort_by,
+                "reported_votes_count": row.get("votes_count"),
+                "depth_source": depth_source,
+                "planned_depth": depth,
+                "depth_capped": capped,
+                "coverage_status_before_collection": pre_status,
+                "collection_required": True,
+                "estimated_maximum_cost_usd": (
+                    depth / 10 * standard_cost_per_ten_reviews_usd
+                ),
+            }
+        )
+
+    manifest = pd.DataFrame.from_records(records).sort_values(
+        ["requested_location", "cid"], kind="stable", ignore_index=True
+    )
+    for column in ("task_tag", "outcome_profile_key", "clinic_key", "cid", "identifier_value"):
+        if manifest[column].duplicated().any():
+            raise ValueError(f"Generated manifest contains duplicate {column} values")
+    return manifest
+
+
+def summarize_outcome_profile_review_manifest(
+    manifest: pd.DataFrame,
+    *,
+    configured_batch_size: int = 50,
+    api_maximum_tasks_per_post: int = 100,
+) -> dict[str, object]:
+    """Summarize the full-rebuild profile-level collection plan."""
+
+    required = {
+        "task_tag",
+        "outcome_profile_key",
+        "competition_location_id",
+        "identifier_type",
+        "requested_location",
+        "reported_votes_count",
+        "planned_depth",
+        "depth_capped",
+        "estimated_maximum_cost_usd",
+    }
+    missing = required - set(manifest.columns)
+    if missing:
+        raise KeyError(f"Review manifest is missing columns: {sorted(missing)}")
+    if not 1 <= configured_batch_size <= api_maximum_tasks_per_post:
+        raise ValueError("Configured batch size exceeds the API task limit")
+    return {
+        "dry_run_only": True,
+        "api_tasks_submitted": 0,
+        "planned_tasks": int(len(manifest)),
+        "unique_outcome_profiles": int(manifest["outcome_profile_key"].nunique()),
+        "unique_main_competition_locations": int(
+            manifest["competition_location_id"].nunique()
+        ),
+        "tasks_with_place_id": int(manifest["identifier_type"].eq("place_id").sum()),
+        "tasks_using_cid_fallback": int(manifest["identifier_type"].eq("cid").sum()),
+        "tasks_with_missing_reported_votes": int(
+            pd.to_numeric(manifest["reported_votes_count"], errors="coerce").isna().sum()
+        ),
+        "reported_zero_profiles": int(
+            pd.to_numeric(manifest["reported_votes_count"], errors="coerce").eq(0).sum()
+        ),
+        "tasks_with_capped_depth": int(manifest["depth_capped"].map(_boolean).sum()),
+        "total_planned_depth": int(manifest["planned_depth"].sum()),
+        "configured_batch_size": int(configured_batch_size),
+        "api_maximum_tasks_per_post": int(api_maximum_tasks_per_post),
+        "planned_post_batches": int(math.ceil(len(manifest) / configured_batch_size)),
+        "estimated_maximum_cost_usd": round(
+            float(manifest["estimated_maximum_cost_usd"].sum()), 4
+        ),
+        "tasks_by_market": {
+            str(key): int(value)
+            for key, value in manifest["requested_location"].value_counts().sort_index().items()
+        },
+    }
 
 
 def build_review_collection_manifest(

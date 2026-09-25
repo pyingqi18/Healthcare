@@ -47,7 +47,7 @@
 5. 实体地点与评论
    duplicate_candidate_audit.py、physical_location_groups.py、location_resolution_audit.py和final_location_resolution.py处理资料到实体地点的归并。
    review_collection.py、review_result_audit.py和review_result_parsing.py处理评论任务及结果。
-   当前review_collection.py沿用Malone与Syracuse修复批次的“一物理地点一项任务”口径，默认最大depth为2000。该口径不能直接用于full_rebuild：正式评论manifest必须改为每个eligible outcome profile一项任务，保留同一competition location下不同Google profile的独立评分历史，并把4490上限与超过上限的左截断状态写入审计。完成此修改前不得提交full_rebuild评论任务。
+   review_collection.py保留Malone与Syracuse修复批次的旧入口，并已新增full rebuild的“一eligible outcome profile一项任务”口径。正式manifest保留同一competition location下不同Google profile的独立评分历史，最大depth为4490，并把达到上限后的剩余缺口写为左截断。
 
 6. 数据替换
    replacement_audit.py核验替换边界。replacement_build.py生成corrected_v1诊所和评论表，不覆盖legacy_v1。
@@ -60,6 +60,12 @@
 
 9. 阶段46最终剩余决定
    profile_eligibility_final_completion.py只接受冻结的199行检查点、85条既有决定和114条指定profile identity。它补齐114条决定并保留既有85条，不调用API、不生成研究原始数据、不合并profile或地点。输出仍需交给46j应用，不能直接当作450条最终资格冻结。
+
+   profile_eligibility_final_application.py把版本化的251条verified基线与用户本地199条additions严格合并，固定验证450条总量、217条纳入、233条排除，并核对46a模板中的市场、profile key、标题和地址。它复用既有cross-source审核逻辑，只准备物理地点candidate pairs和review blocks，不作自动合并，也不生成最终地点ID。
+
+   physical_location_policy_review.py验证46m的5679块triage与15796条block profile明细完全守恒。它生成一张完整政策决定表，把4031个routine块标记为建议保留当前块，把1072个多基址complex块标记为建议按normalized base address拆分，并把剩余576块集中到唯一人工队列。所有最终决定字段为空，模块不应用任何地点决定。
+
+   final_physical_location_freeze.py不再要求576块人工决定。主口径对歧义块保留逐profile competition location，敏感性口径按当前同址块合并；routine块和多基址拆分规则在两套口径中保持一致。模块生成稳定哈希地点ID、profile到两套地点ID的crosswalk、两张地点表和守恒summary，保留全部outcome profile身份。
 ### `identity_rule_adjudication.py`
 
 读取31a生成的候选身份表和冻结的逐条人工决定，检查reference key覆盖、标题身份是否漂移以及决定值是否合法。它分别输出确认的历史地点匹配和应从当前参考分母排除的旧记录，并报告候选规则的样本内正预测值。该模块不会把放宽规则推广到其他记录，也不会合并rating profile。
@@ -137,3 +143,17 @@
 ### `legacy_regression_report.py`
 
 读取corrected_v1诊所、strict 009a panel和04至15已保存的回归系数，统一生成市场、州、城市规模、类别、年度趋势、entry group及各固定效应规格的表和图。旧notebook中逐城市逐类别循环生成的重复图片被改成固定多市场图；低评分统一定义为诊所平均评分小于等于3.0。模块只整理和展示既有结果，不重新估计模型、不选择显著规格，也不修改BallTree或空间exposure。
+
+### `review_collection.py` full rebuild入口
+
+保留Malone与Syracuse历史修复入口，同时新增逐eligible outcome profile manifest。正式口径允许同一competition location下多个Google profile分别采集，最大depth为4490；`review_result_audit.py`把达到4490仍低于reported reviews count的profile标记为`capped_at_api_limit`和左截断，而不是生成无法执行的更深任务。
+
+full rebuild合并前把crosswalk中的profile key、CID和mapped location显式改为`crosswalk_*`字段，再与46m profile表逐项核对。这样兼容真实profile表同时包含`requested_location`和`mapped_location`的结构，并阻止市场身份漂移。
+
+### `existing_review_reuse.py`
+
+在付费评论采集前审计corrected_v1现有历史。自动复用要求稳定Google profile标识、每条评论的profile级来源与唯一review ID、完整有效的日期与评分，以及旧评论行数同时覆盖旧版与当前47a reported review count。名称与ZIP仅用于输出人工候选，不自动建立身份。模块返回完整审计表、可复用profile、身份候选、减量付费manifest和费用摘要，不调用API。
+
+### `enhanced_legacy_review_reuse.py`
+
+修复corrected_v1混合schema的逐行字段读取，并对47b唯一market加title加ZIP候选执行更强身份审核。新增复用要求完整标准化地址一致、电话/domain/坐标无冲突、review ID或URL唯一、逐行日期评分有效，并覆盖旧版与当前reported count。模块保留47b已确认的稳定ID复用结果，输出第二版减量manifest，不调用API。

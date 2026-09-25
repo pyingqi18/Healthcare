@@ -89,3 +89,13 @@ def test_validate_manifest_rejects_identifier_drift() -> None:
         assert "does not match" in str(error)
     else:
         raise AssertionError("Expected identifier drift to fail")
+
+
+def test_validate_manifest_allows_multiple_profiles_per_physical_location() -> None:
+    module = load_script()
+    manifest = make_manifest(2)
+    manifest["final_physical_location_id"] = "location:shared"
+    manifest["competition_location_id"] = "location:shared"
+    manifest["outcome_profile_key"] = manifest["clinic_key"]
+
+    module.validate_manifest(manifest)

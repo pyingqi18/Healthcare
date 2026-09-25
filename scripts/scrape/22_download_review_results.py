@@ -94,7 +94,7 @@ def build_download_plan(
         values = submitted[column].astype("string").str.strip()
         if values.isna().any() or values.eq("").any():
             raise ValueError(f"Submitted task log contains blank {column} values")
-    for column in ("task_tag", "task_id", "final_physical_location_id"):
+    for column in ("task_tag", "task_id", "clinic_key"):
         if submitted[column].duplicated().any():
             raise ValueError(f"Submitted task log contains duplicate {column} values")
     if not set(submitted["identifier_type"]).issubset({"place_id", "cid"}):

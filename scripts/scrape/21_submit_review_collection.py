@@ -86,9 +86,25 @@ def validate_manifest(manifest: pd.DataFrame) -> None:
         values = manifest[column].astype("string").str.strip()
         if values.isna().any() or values.eq("").any():
             raise ValueError(f"Manifest contains blank {column} values")
-    for column in ("task_tag", "final_physical_location_id", "identifier_value"):
+    for column in ("task_tag", "clinic_key", "identifier_value"):
         if manifest[column].duplicated().any():
             raise ValueError(f"Manifest contains duplicate {column} values")
+
+    if "outcome_profile_key" in manifest.columns:
+        profile_keys = manifest["outcome_profile_key"].astype("string").str.strip()
+        if profile_keys.isna().any() or profile_keys.eq("").any():
+            raise ValueError("Manifest contains blank outcome_profile_key values")
+        if profile_keys.duplicated().any():
+            raise ValueError("Manifest contains duplicate outcome_profile_key values")
+    if "competition_location_id" in manifest.columns:
+        location_ids = manifest["competition_location_id"].astype("string").str.strip()
+        if location_ids.isna().any() or location_ids.eq("").any():
+            raise ValueError("Manifest contains blank competition_location_id values")
+        aliases = manifest["final_physical_location_id"].astype("string").str.strip()
+        if not location_ids.eq(aliases).all():
+            raise ValueError(
+                "competition_location_id does not match the compatibility alias"
+            )
 
     identifier_types = set(manifest["identifier_type"].astype(str))
     if not identifier_types.issubset({"place_id", "cid"}):

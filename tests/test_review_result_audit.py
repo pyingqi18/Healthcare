@@ -156,3 +156,27 @@ def test_audit_rejects_wrong_business_identifier() -> None:
             expected_location_code=1023114,
             planned_depth=20,
         )
+
+
+def test_audit_marks_api_limit_as_left_censored_without_followup() -> None:
+    payload = make_payload(
+        "1",
+        1023114,
+        reviews_count=5000,
+        review_ids=[f"review-{index}" for index in range(4490)],
+    )
+
+    summary, _ = audit_review_payload(
+        payload,
+        expected_task_id="task-1",
+        expected_task_tag="reviews:cid:1",
+        expected_identifier_type="place_id",
+        expected_identifier_value="place-1",
+        expected_location_code=1023114,
+        planned_depth=4490,
+    )
+
+    assert summary["completeness_status"] == "capped_at_api_limit"
+    assert summary["left_censored_at_api_limit"]
+    assert not summary["needs_depth_followup"]
+    assert not summary["requires_manual_review"]
